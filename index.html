@@ -78,6 +78,9 @@
         .copy-link button { white-space: nowrap; }
 
         .multi-select { border: 1px solid #cbd5e0; border-radius: 6px; max-height: 150px; overflow-y: auto; padding: 4px; margin-bottom: 10px; }
+        .multi-select.disabled { background: #f7fafc; opacity: 0.5; }
+        .multi-select.disabled label { cursor: not-allowed; color: #a0aec0; }
+        input[type="text"]:disabled { background: #f7fafc; cursor: not-allowed; color: #a0aec0; }
         .multi-select label { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-weight: normal; cursor: pointer; font-size: 13px; }
         .multi-select label:hover { background: #f7fafc; }
         .multi-select input { width: auto; margin: 0; }
@@ -189,6 +192,8 @@
 
     <div id="survey-departments"></div>
 
+    <datalist id="onelink-pharmacies"></datalist>
+
     <div id="survey-add-btn" style="text-align:center; margin: 16px 0;">
         <button class="btn btn-secondary" onclick="addDepartment()">+ Add Another Pharmacy</button>
     </div>
@@ -226,6 +231,7 @@ const DEFAULT_SUBLOC_NAMES = [
 
 const DEFAULT_SUBLOC_TYPES = [
     'Main Area', 'Shelf', 'Refrigerator', 'Freezer',
+    'Cleanroom', 'Overstock Storage',
     'Non-Standard', 'Flammables', 'Hazards', 'Incubators'
 ];
 
@@ -241,12 +247,12 @@ function defaultState() {
 }
 function loadState() {
     try {
-        const s = JSON.parse(localStorage.getItem('pharmacy-survey-state-v3'));
+        const s = JSON.parse(localStorage.getItem('pharmacy-survey-state-v4'));
         if (s && s.sublocTypes) return s;
         return defaultState();
     } catch { return defaultState(); }
 }
-function saveState() { localStorage.setItem('pharmacy-survey-state-v3', JSON.stringify(state)); }
+function saveState() { localStorage.setItem('pharmacy-survey-state-v4', JSON.stringify(state)); }
 
 function toast(msg, isError) {
     const t = document.getElementById('toast');
@@ -427,18 +433,18 @@ function renderDeptForm(d, i) {
                     </select>
                 </div>
                 <div class="form-group"><label class="required">Location</label>
-                    <select data-req="dept-${i}" onchange="handleLocationChange(${i}, this.value)" ${!d.region?'disabled':''}>
-                        <option value="">${d.region ? '-- Select Location --' : '-- Select Region first --'}</option>
-                        ${d.region && SURVEY_DATA.pharmacyLocations[d.region] ? SURVEY_DATA.pharmacyLocations[d.region].map(l => `<option value="${esc(l)}" ${d.location===l?'selected':''}>${esc(l)}</option>`).join('') : ''}
-                    </select>
+                    <input type="text" data-req="dept-${i}" list="locations-${i}" value="${esc(d.location)}" onchange="handleLocationChange(${i}, this.value)" ${!d.region?'disabled':''} placeholder="${d.region ? 'Type to search, click for list, or enter custom value' : 'Select Region first'}" autocomplete="off" />
+                    <datalist id="locations-${i}">
+                        ${d.region && SURVEY_DATA.pharmacyLocations[d.region] ? SURVEY_DATA.pharmacyLocations[d.region].map(l => `<option value="${esc(l)}"></option>`).join('') : ''}
+                    </datalist>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group"><label class="required">Department</label>
-                    <select data-req="dept-${i}" onchange="handleDepartmentChange(${i}, this.value)" ${!d.location?'disabled':''}>
-                        <option value="">${d.location ? '-- Select Department --' : '-- Select Location first --'}</option>
-                        ${d.region && d.location && SURVEY_DATA.pharmacyDepartments[d.region] && SURVEY_DATA.pharmacyDepartments[d.region][d.location] ? SURVEY_DATA.pharmacyDepartments[d.region][d.location].map(rec => `<option value="${esc(rec.dept)}" ${d.department===rec.dept?'selected':''}>${esc(rec.dept)}</option>`).join('') : ''}
-                    </select>
+                    <input type="text" data-req="dept-${i}" list="depts-${i}" value="${esc(d.department)}" onchange="handleDepartmentChange(${i}, this.value)" ${!d.location?'disabled':''} placeholder="${d.location ? 'Type to search, click for list, or enter custom value' : 'Select Location first'}" autocomplete="off" />
+                    <datalist id="depts-${i}">
+                        ${d.region && d.location && SURVEY_DATA.pharmacyDepartments[d.region] && SURVEY_DATA.pharmacyDepartments[d.region][d.location] ? SURVEY_DATA.pharmacyDepartments[d.region][d.location].map(rec => `<option value="${esc(rec.dept)}"></option>`).join('') : ''}
+                    </datalist>
                 </div>
                 <div class="form-group"><label>Specialty</label><input type="text" class="autofilled" value="${esc(d.specialty)}" ${onch(i,'specialty')} placeholder="IP Pharmacy" /></div>
             </div>
@@ -465,10 +471,7 @@ function renderDeptForm(d, i) {
         <div class="section-body">
             <div class="form-row">
                 <div class="form-group"><label class="required">Main Supplying Pharmacy</label>
-                    <select data-req="dept-${i}" onchange="handleSupplyingPharmacyChange(${i}, this.value)">
-                        <option value="">-- Select Main Supplying Pharmacy --</option>
-                        ${SURVEY_DATA.onelink.pharmacies.map(p => `<option value="${esc(p)}" ${d.mainSupplyingPharmacy===p?'selected':''}>${esc(p)}</option>`).join('')}
-                    </select>
+                    <input type="text" data-req="dept-${i}" list="onelink-pharmacies" value="${esc(d.mainSupplyingPharmacy)}" onchange="handleSupplyingPharmacyChange(${i}, this.value)" placeholder="Type to search, click for list, or enter custom value" autocomplete="off" />
                 </div>
                 <div class="form-group"><label class="required">Supplying RX Location Code</label><input type="text" data-req="dept-${i}" class="${d.supplyingRxLocCode?'autofilled':''}" value="${esc(d.supplyingRxLocCode)}" ${onch(i,'supplyingRxLocCode')} placeholder="Auto-filled (editable)" /></div>
             </div>
@@ -507,19 +510,11 @@ function renderDeptForm(d, i) {
             <p class="text-muted mb-2">Please select or list <strong>all sublocations that apply</strong> to this pharmacy. Choose from the dropdowns or select "Other (free text)" to enter a custom value. At least one sublocation is required.</p>
             <table class="subloc-table">
                 <thead>
-                    <tr><th>Sublocation Name *</th><th>Sublocation Type *</th><th style="width:60px;"></th></tr>
+                    <tr><th>Sublocation Type *</th><th>Sublocation Name *</th><th style="width:60px;"></th></tr>
                 </thead>
                 <tbody>
                     ${(d.sublocations||[]).map((sl, si) => `
                         <tr>
-                            <td>
-                                <select data-req-subloc="dept-${i}" onchange="handleSublocNameChange(${i},${si},this.value)">
-                                    <option value="">-- Select Name --</option>
-                                    ${state.sublocNames.map(n => `<option value="${esc(n)}" ${sl.name===n?'selected':''}>${n}</option>`).join('')}
-                                    <option value="__other__" ${sl.name==='__other__'?'selected':''}>Other (free text)</option>
-                                </select>
-                                ${sl.name==='__other__' ? `<input type="text" data-req-subloc="dept-${i}" value="${esc(sl.nameOther)}" onchange="surveyDepts[${i}].sublocations[${si}].nameOther=this.value" placeholder="Enter sublocation name..." style="margin-top:4px;" />` : ''}
-                            </td>
                             <td>
                                 <select data-req-subloc="dept-${i}" onchange="handleSublocTypeChange(${i},${si},this.value)">
                                     <option value="">-- Select Type --</option>
@@ -527,6 +522,14 @@ function renderDeptForm(d, i) {
                                     <option value="__other__" ${sl.type==='__other__'?'selected':''}>Other (free text)</option>
                                 </select>
                                 ${sl.type==='__other__' ? `<input type="text" data-req-subloc="dept-${i}" value="${esc(sl.typeOther)}" onchange="surveyDepts[${i}].sublocations[${si}].typeOther=this.value" placeholder="Enter sublocation type..." style="margin-top:4px;" />` : ''}
+                            </td>
+                            <td>
+                                <select data-req-subloc="dept-${i}" onchange="handleSublocNameChange(${i},${si},this.value)">
+                                    <option value="">-- Select Name --</option>
+                                    ${state.sublocNames.map(n => `<option value="${esc(n)}" ${sl.name===n?'selected':''}>${n}</option>`).join('')}
+                                    <option value="__other__" ${sl.name==='__other__'?'selected':''}>Other (free text)</option>
+                                </select>
+                                ${sl.name==='__other__' ? `<input type="text" data-req-subloc="dept-${i}" value="${esc(sl.nameOther)}" onchange="surveyDepts[${i}].sublocations[${si}].nameOther=this.value" placeholder="Enter sublocation name..." style="margin-top:4px;" />` : ''}
                             </td>
                             <td><button class="btn btn-danger" onclick="surveyDepts[${i}].sublocations.splice(${si},1);renderSurvey()">X</button></td>
                         </tr>
@@ -551,10 +554,13 @@ function renderDeptForm(d, i) {
                 <div class="form-group">
                     <label class="required">Does your Pharmacy service any Non-Inpatient Departments and Clinics?</label>
                     <div class="check-row" style="margin-bottom:8px;">
-                        <input type="checkbox" id="servicedNA-${i}" ${(d.servicedDepts||[]).includes('No / N/A')?'checked':''} onchange="toggleMulti(${i},'servicedDepts','No / N/A',this.checked)" />
+                        <input type="checkbox" id="servicedNA-${i}" ${(d.servicedDepts||[]).includes('No / N/A')?'checked':''} onchange="handleServicedNAToggle(${i}, this.checked)" />
                         <label for="servicedNA-${i}"><strong>No / N/A</strong> — this pharmacy does not service any non-inpatient departments or clinics</label>
                     </div>
                     ${(() => {
+                        const naChecked = (d.servicedDepts||[]).includes('No / N/A');
+                        const disabledAttr = naChecked ? 'disabled' : '';
+                        const disabledClass = naChecked ? ' disabled' : '';
                         if (!d.department) {
                             return '<p class="text-muted" style="padding:8px 0;">Select a Department above to see available departments at the same address (or check "No / N/A" above).</p>';
                         }
@@ -562,13 +568,13 @@ function renderDeptForm(d, i) {
                         if (!opts.length) {
                             return '<p class="text-muted" style="padding:8px 0;">No matching departments found at this address. Use the "Other" field below, or check "No / N/A" above.</p>';
                         }
-                        return `<div class="multi-select" id="servicedDepts-${i}">
+                        return `<div class="multi-select${disabledClass}" id="servicedDepts-${i}">
                             ${opts.map(opt => `
-                                <label><input type="checkbox" ${(d.servicedDepts||[]).includes(opt)?'checked':''} onchange="toggleMulti(${i},'servicedDepts','${esc(opt)}',this.checked)" /> ${esc(opt)}</label>
+                                <label><input type="checkbox" ${(d.servicedDepts||[]).includes(opt)?'checked':''} ${disabledAttr} onchange="toggleMulti(${i},'servicedDepts','${esc(opt)}',this.checked)" /> ${esc(opt)}</label>
                             `).join('')}
                         </div>`;
                     })()}
-                    <input type="text" placeholder="Other (free text) - type additional departments..." ${onch(i,'servicedDeptsOther')} value="${esc(d.servicedDeptsOther||'')}" />
+                    <input type="text" placeholder="Other (free text) - type additional departments..." ${onch(i,'servicedDeptsOther')} value="${esc(d.servicedDeptsOther||'')}" ${(d.servicedDepts||[]).includes('No / N/A')?'disabled':''} />
                 </div>
             </div>
             <div class="form-group"><label>Comments</label>
@@ -663,6 +669,18 @@ function toggleMulti(i, field, value, checked) {
     if (checked) { if (!arr.includes(value)) arr.push(value); }
     else { surveyDepts[i][field] = arr.filter(v => v !== value); return; }
     surveyDepts[i][field] = arr;
+}
+
+function handleServicedNAToggle(i, checked) {
+    const d = surveyDepts[i];
+    if (checked) {
+        // Clear all other selections and the Other text — "No / N/A" stands alone
+        d.servicedDepts = ['No / N/A'];
+        d.servicedDeptsOther = '';
+    } else {
+        d.servicedDepts = (d.servicedDepts || []).filter(v => v !== 'No / N/A');
+    }
+    renderSurvey();
 }
 
 // ============ VALIDATION ============
@@ -822,6 +840,11 @@ function init() {
     checkAdmin();
     if (URLS.submit) document.getElementById('api-url-submit').value = URLS.submit;
     renderPublicLink();
+    // Populate shared OneLink pharmacy datalist (rendered once for all pharmacy entries)
+    const olDL = document.getElementById('onelink-pharmacies');
+    if (olDL && SURVEY_DATA.onelink && SURVEY_DATA.onelink.pharmacies) {
+        olDL.innerHTML = SURVEY_DATA.onelink.pharmacies.map(p => `<option value="${esc(p)}"></option>`).join('');
+    }
     renderSurvey();
     if (isConnected()) {
         document.getElementById('api-status').innerHTML = '<span style="color:#38a169;font-weight:600;">Connected</span>';
