@@ -615,7 +615,9 @@ function handleDepartmentChange(i, value) {
         d.address = rec.address || '';
         d.addressKey = rec.addressKey || '';
         d.city = rec.city || '';
-        d.state = rec.state || '';
+        // NCAL + SCAL are both in California; default to it when the source data leaves state blank.
+        // Field stays editable so if non-CA regions are added later, the user can override.
+        d.state = rec.state || 'California';
         d.zip = rec.zip || '';
     }
     d.specialty = 'IP Pharmacy';
