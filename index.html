@@ -176,7 +176,7 @@
         <div class="section-body">
             <div class="form-row">
                 <div class="form-group">
-                    <label class="required">Your Name</label>
+                    <label class="required">Enter your first and last name</label>
                     <input type="text" id="respondent-name" placeholder="Enter your full name..." />
                 </div>
                 <div class="form-group">
@@ -260,7 +260,7 @@ function toast(msg, isError) {
 // BEFORE deploying to GitHub Pages. This makes the survey work for external hospital users.
 // (localStorage-only configuration only works for the admin's own browser — external users
 //  have empty localStorage and would have no way to submit.)
-const EMBEDDED_FLOW_URL = '';
+const EMBEDDED_FLOW_URL = 'https://997e87e2062feb52af5c332a27e4b4.0d.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b34d1679ffaa4e3ead8d8222f877a7a0/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=MqXW8VcznDQ6aSlYZtTyEsK6IfXl3B-KrE1k6Clq-Gs';
 let URLS = JSON.parse(localStorage.getItem('pharmacy-flow-urls') || '{}');
 if (EMBEDDED_FLOW_URL) URLS.submit = EMBEDDED_FLOW_URL;
 function isConnected() { return !!URLS.submit; }
@@ -550,13 +550,17 @@ function renderDeptForm(d, i) {
                 </div>
                 <div class="form-group">
                     <label class="required">Does your Pharmacy service any Non-Inpatient Departments and Clinics?</label>
+                    <div class="check-row" style="margin-bottom:8px;">
+                        <input type="checkbox" id="servicedNA-${i}" ${(d.servicedDepts||[]).includes('No / N/A')?'checked':''} onchange="toggleMulti(${i},'servicedDepts','No / N/A',this.checked)" />
+                        <label for="servicedNA-${i}"><strong>No / N/A</strong> — this pharmacy does not service any non-inpatient departments or clinics</label>
+                    </div>
                     ${(() => {
                         if (!d.department) {
-                            return '<p class="text-muted" style="padding:8px 0;">Select a Department above to see available departments at the same address.</p>';
+                            return '<p class="text-muted" style="padding:8px 0;">Select a Department above to see available departments at the same address (or check "No / N/A" above).</p>';
                         }
                         const opts = getServicedDeptsForAddress(d.region, d.addressKey);
                         if (!opts.length) {
-                            return '<p class="text-muted" style="padding:8px 0;">No matching departments found at this address. Use the "Other" field below to enter departments.</p>';
+                            return '<p class="text-muted" style="padding:8px 0;">No matching departments found at this address. Use the "Other" field below, or check "No / N/A" above.</p>';
                         }
                         return `<div class="multi-select" id="servicedDepts-${i}">
                             ${opts.map(opt => `
