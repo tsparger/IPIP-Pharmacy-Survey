@@ -192,8 +192,6 @@
 
     <div id="survey-departments"></div>
 
-    <datalist id="onelink-pharmacies"></datalist>
-
     <div id="survey-add-btn" style="text-align:center; margin: 16px 0;">
         <button class="btn btn-secondary" onclick="addDepartment()">+ Add Another Pharmacy</button>
     </div>
@@ -387,10 +385,11 @@ function download(name, content, type) {
 // ============ SURVEY ============
 function makeDept() {
     return {
-        region:'', location:'', department:'', specialty:'IP Pharmacy', address:'', addressKey:'', city:'', state:'', zip:'',
+        region:'', location:'', locationOther:'', department:'', departmentOther:'',
+        specialty:'IP Pharmacy', address:'', addressKey:'', city:'', state:'', zip:'',
         dispenseValidated: false, noBuildNeeded: false,
         onelinkLocDesc:'', onelinkLocCode:'', onelinkCostCenter:'', glString:'', dea:'', stateLicense:'',
-        mainSupplyingPharmacy:'', supplyingRxLocCode:'',
+        mainSupplyingPharmacy:'', mainSupplyingPharmacyOther:'', supplyingRxLocCode:'',
         numPyxis:'', numNonPyxis:'',
         sublocations: [makeSublocation()],
         orderFrequency:'', orderTime:'',
@@ -433,18 +432,22 @@ function renderDeptForm(d, i) {
                     </select>
                 </div>
                 <div class="form-group"><label class="required">Location</label>
-                    <input type="text" data-req="dept-${i}" list="locations-${i}" value="${esc(d.location)}" onchange="handleLocationChange(${i}, this.value)" ${!d.region?'disabled':''} placeholder="${d.region ? 'Type to search, click for list, or enter custom value' : 'Select Region first'}" autocomplete="off" />
-                    <datalist id="locations-${i}">
-                        ${d.region && SURVEY_DATA.pharmacyLocations[d.region] ? SURVEY_DATA.pharmacyLocations[d.region].map(l => `<option value="${esc(l)}"></option>`).join('') : ''}
-                    </datalist>
+                    <select data-req="dept-${i}" onchange="handleLocationChange(${i}, this.value)" ${!d.region?'disabled':''}>
+                        <option value="">${d.region ? '-- Select Location --' : '-- Select Region first --'}</option>
+                        ${d.region && SURVEY_DATA.pharmacyLocations[d.region] ? SURVEY_DATA.pharmacyLocations[d.region].map(l => `<option value="${esc(l)}" ${d.location===l?'selected':''}>${esc(l)}</option>`).join('') : ''}
+                        <option value="__other__" ${d.location==='__other__'?'selected':''}>Other (enter manually)</option>
+                    </select>
+                    ${d.location==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.locationOther||'')}" onchange="surveyDepts[${i}].locationOther=this.value" placeholder="Enter location name..." style="margin-top:6px;" />` : ''}
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group"><label class="required">Department</label>
-                    <input type="text" data-req="dept-${i}" list="depts-${i}" value="${esc(d.department)}" onchange="handleDepartmentChange(${i}, this.value)" ${!d.location?'disabled':''} placeholder="${d.location ? 'Type to search, click for list, or enter custom value' : 'Select Location first'}" autocomplete="off" />
-                    <datalist id="depts-${i}">
-                        ${d.region && d.location && SURVEY_DATA.pharmacyDepartments[d.region] && SURVEY_DATA.pharmacyDepartments[d.region][d.location] ? SURVEY_DATA.pharmacyDepartments[d.region][d.location].map(rec => `<option value="${esc(rec.dept)}"></option>`).join('') : ''}
-                    </datalist>
+                    <select data-req="dept-${i}" onchange="handleDepartmentChange(${i}, this.value)" ${!d.location?'disabled':''}>
+                        <option value="">${d.location ? '-- Select Department --' : '-- Select Location first --'}</option>
+                        ${d.region && d.location && d.location !== '__other__' && SURVEY_DATA.pharmacyDepartments[d.region] && SURVEY_DATA.pharmacyDepartments[d.region][d.location] ? SURVEY_DATA.pharmacyDepartments[d.region][d.location].map(rec => `<option value="${esc(rec.dept)}" ${d.department===rec.dept?'selected':''}>${esc(rec.dept)}</option>`).join('') : ''}
+                        <option value="__other__" ${d.department==='__other__'?'selected':''}>Other (enter manually)</option>
+                    </select>
+                    ${d.department==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.departmentOther||'')}" onchange="surveyDepts[${i}].departmentOther=this.value" placeholder="Enter department name..." style="margin-top:6px;" />` : ''}
                 </div>
                 <div class="form-group"><label>Specialty</label><input type="text" class="autofilled" value="${esc(d.specialty)}" ${onch(i,'specialty')} placeholder="IP Pharmacy" /></div>
             </div>
@@ -471,7 +474,12 @@ function renderDeptForm(d, i) {
         <div class="section-body">
             <div class="form-row">
                 <div class="form-group"><label class="required">Main Supplying Pharmacy</label>
-                    <input type="text" data-req="dept-${i}" list="onelink-pharmacies" value="${esc(d.mainSupplyingPharmacy)}" onchange="handleSupplyingPharmacyChange(${i}, this.value)" placeholder="Type to search, click for list, or enter custom value" autocomplete="off" />
+                    <select data-req="dept-${i}" onchange="handleSupplyingPharmacyChange(${i}, this.value)">
+                        <option value="">-- Select Main Supplying Pharmacy --</option>
+                        ${SURVEY_DATA.onelink.pharmacies.map(p => `<option value="${esc(p)}" ${d.mainSupplyingPharmacy===p?'selected':''}>${esc(p)}</option>`).join('')}
+                        <option value="__other__" ${d.mainSupplyingPharmacy==='__other__'?'selected':''}>Other (enter manually)</option>
+                    </select>
+                    ${d.mainSupplyingPharmacy==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.mainSupplyingPharmacyOther||'')}" onchange="surveyDepts[${i}].mainSupplyingPharmacyOther=this.value" placeholder="Enter pharmacy name..." style="margin-top:6px;" />` : ''}
                 </div>
                 <div class="form-group"><label class="required">Supplying RX Location Code</label><input type="text" data-req="dept-${i}" class="${d.supplyingRxLocCode?'autofilled':''}" value="${esc(d.supplyingRxLocCode)}" ${onch(i,'supplyingRxLocCode')} placeholder="Auto-filled (editable)" /></div>
             </div>
@@ -601,7 +609,8 @@ function handleRegionChange(i, value) {
 function handleLocationChange(i, value) {
     const d = surveyDepts[i];
     d.location = value;
-    d.department = '';
+    if (value !== '__other__') d.locationOther = '';
+    d.department = ''; d.departmentOther = '';
     d.address = ''; d.addressKey = ''; d.city = ''; d.state = ''; d.zip = '';
     d.servicedDepts = [];
     renderSurvey();
@@ -609,36 +618,38 @@ function handleLocationChange(i, value) {
 function handleDepartmentChange(i, value) {
     const d = surveyDepts[i];
     d.department = value;
-    const recs = (SURVEY_DATA.pharmacyDepartments[d.region] || {})[d.location] || [];
-    const rec = recs.find(r => r.dept === value);
-    if (rec) {
-        d.address = rec.address || '';
-        d.addressKey = rec.addressKey || '';
-        d.city = rec.city || '';
-        // NCAL + SCAL are both in California; default to it when the source data leaves state blank.
-        // Field stays editable so if non-CA regions are added later, the user can override.
-        d.state = rec.state || 'California';
-        d.zip = rec.zip || '';
+    if (value !== '__other__') d.departmentOther = '';
+    if (value && value !== '__other__') {
+        const recs = (SURVEY_DATA.pharmacyDepartments[d.region] || {})[d.location] || [];
+        const rec = recs.find(r => r.dept === value);
+        if (rec) {
+            d.address = rec.address || '';
+            d.addressKey = rec.addressKey || '';
+            d.city = rec.city || '';
+            d.state = rec.state || 'California';
+            d.zip = rec.zip || '';
+        }
+        // Auto-suggest Main Supplying Pharmacy based on location
+        const suggested = ((SURVEY_DATA.locationToPharmacy || {})[d.region] || {})[d.location] || '';
+        if (suggested && SURVEY_DATA.onelink.byPharmacy[suggested]) {
+            d.mainSupplyingPharmacy = suggested;
+            const ol = SURVEY_DATA.onelink.byPharmacy[suggested];
+            d.supplyingRxLocCode = ol.rxLocCode || '';
+            d.onelinkLocDesc = ol.locDesc || '';
+            d.onelinkCostCenter = ol.costCenter || '';
+            d.glString = ol.glString || '';
+            d.onelinkLocCode = ol.locCode || '';
+            d.stateLicense = ol.stateLicense || '';
+            d.dea = ol.dea || '';
+        }
     }
     d.specialty = 'IP Pharmacy';
-    // Auto-suggest Main Supplying Pharmacy based on location
-    const suggested = ((SURVEY_DATA.locationToPharmacy || {})[d.region] || {})[d.location] || '';
-    if (suggested && SURVEY_DATA.onelink.byPharmacy[suggested]) {
-        d.mainSupplyingPharmacy = suggested;
-        const ol = SURVEY_DATA.onelink.byPharmacy[suggested];
-        d.supplyingRxLocCode = ol.rxLocCode || '';
-        d.onelinkLocDesc = ol.locDesc || '';
-        d.onelinkCostCenter = ol.costCenter || '';
-        d.glString = ol.glString || '';
-        d.onelinkLocCode = ol.locCode || '';
-        d.stateLicense = ol.stateLicense || '';
-        d.dea = ol.dea || '';
-    }
     renderSurvey();
 }
 function handleSupplyingPharmacyChange(i, value) {
     const d = surveyDepts[i];
     d.mainSupplyingPharmacy = value;
+    if (value !== '__other__') d.mainSupplyingPharmacyOther = '';
     const rec = SURVEY_DATA.onelink.byPharmacy[value];
     if (rec) {
         d.supplyingRxLocCode = rec.rxLocCode || '';
@@ -648,7 +659,8 @@ function handleSupplyingPharmacyChange(i, value) {
         d.onelinkLocCode = rec.locCode || '';
         d.stateLicense = rec.stateLicense || '';
         d.dea = rec.dea || '';
-    } else {
+    } else if (value === '__other__') {
+        // Clear auto-fills since user is entering custom pharmacy
         d.supplyingRxLocCode = ''; d.onelinkLocDesc = ''; d.onelinkCostCenter = '';
         d.glString = ''; d.onelinkLocCode = ''; d.stateLicense = ''; d.dea = '';
     }
@@ -772,6 +784,10 @@ async function submitSurvey() {
         submittedAt: submittedAt,
         departments: surveyDepts.map(d => ({
             ...d,
+            // Resolve __other__ placeholders to the user-typed values
+            location: d.location === '__other__' ? (d.locationOther || '') : d.location,
+            department: d.department === '__other__' ? (d.departmentOther || '') : d.department,
+            mainSupplyingPharmacy: d.mainSupplyingPharmacy === '__other__' ? (d.mainSupplyingPharmacyOther || '') : d.mainSupplyingPharmacy,
             sublocations: (d.sublocations||[]).filter(s => s.name).map(s => ({
                 name: s.name === '__other__' ? s.nameOther : s.name,
                 type: s.type === '__other__' ? s.typeOther : s.type
@@ -842,11 +858,6 @@ function init() {
     checkAdmin();
     if (URLS.submit) document.getElementById('api-url-submit').value = URLS.submit;
     renderPublicLink();
-    // Populate shared OneLink pharmacy datalist (rendered once for all pharmacy entries)
-    const olDL = document.getElementById('onelink-pharmacies');
-    if (olDL && SURVEY_DATA.onelink && SURVEY_DATA.onelink.pharmacies) {
-        olDL.innerHTML = SURVEY_DATA.onelink.pharmacies.map(p => `<option value="${esc(p)}"></option>`).join('');
-    }
     renderSurvey();
     if (isConnected()) {
         document.getElementById('api-status').innerHTML = '<span style="color:#38a169;font-weight:600;">Connected</span>';
