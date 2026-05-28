@@ -120,7 +120,7 @@
             .form-row, .form-row-3, .form-row-4 { grid-template-columns: 1fr; }
         }
     </style>
-    <script src="survey-data.js?v=20260528b"></script>
+    <script src="survey-data.js?v=20260528c"></script>
 </head>
 <body>
 
@@ -233,7 +233,9 @@ const DEFAULT_SUBLOC_NAMES = [
 const DEFAULT_SUBLOC_TYPES = [
     'Main Area', 'Shelf', 'Refrigerator', 'Freezer',
     'Cleanroom', 'Overstock Storage',
-    'Non-Standard', 'Flammables', 'Hazards', 'Incubators'
+    'Non-Standard', 'Flammables', 'Hazards', 'Incubator',
+    'Narcotic Vault', 'Pyxis Machine', 'Crash Cart',
+    'Carousel', 'KitCheck storage', 'Tray Storage'
 ];
 
 let state = loadState();
@@ -248,12 +250,12 @@ function defaultState() {
 }
 function loadState() {
     try {
-        const s = JSON.parse(localStorage.getItem('pharmacy-survey-state-v4'));
+        const s = JSON.parse(localStorage.getItem('pharmacy-survey-state-v5'));
         if (s && s.sublocTypes) return s;
         return defaultState();
     } catch { return defaultState(); }
 }
-function saveState() { localStorage.setItem('pharmacy-survey-state-v4', JSON.stringify(state)); }
+function saveState() { localStorage.setItem('pharmacy-survey-state-v5', JSON.stringify(state)); }
 
 function toast(msg, isError) {
     const t = document.getElementById('toast');
@@ -395,7 +397,7 @@ function makeDept() {
         mainSupplyingPharmacy:'', mainSupplyingPharmacyOther:'', supplyingRxLocCode:'',
         numPyxis:'', numNonPyxis:'',
         sublocations: [makeSublocation()],
-        orderFrequency:'', orderTime:'',
+        orderFrequency:'', orderTime:[],
         servicedDepts: [], servicedDeptsOther: '',
         comments: '',
         pharmacyDispenseValidated: ''
@@ -418,6 +420,8 @@ function onch(i, field) { return `onchange="${sd(i,field)}=this.value"`; }
 function onchk(i, field) { return `onchange="${sd(i,field)}=this.checked"`; }
 
 function renderDeptForm(d, i) {
+    // Migrate legacy single-select orderTime ('AM/Early Morning' string) to array form.
+    if (typeof d.orderTime === 'string') d.orderTime = d.orderTime ? [d.orderTime] : [];
     return `
     <div class="dept-entry">
         <div class="dept-header">
@@ -478,11 +482,11 @@ function renderDeptForm(d, i) {
                 <div class="form-group"><label class="required">Supplying RX Location Code</label><input type="text" data-req="dept-${i}" class="${d.supplyingRxLocCode?'autofilled':''}" value="${esc(d.supplyingRxLocCode)}" ${onch(i,'supplyingRxLocCode')} placeholder="Auto-filled (editable)" /></div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label class="required">Enter number of Pyxis Machines in this Pharmacy</label><input type="number" data-req="dept-${i}" value="${esc(d.numPyxis)}" ${onch(i,'numPyxis')} min="0" /></div>
+                <div class="form-group"><label class="required">Enter number of Pyxis Machines and Pyxis CII Vaults within this Pharmacy (if any)</label><input type="number" data-req="dept-${i}" value="${esc(d.numPyxis)}" ${onch(i,'numPyxis')} min="0" /></div>
                 <div class="form-group">
                     <label class="required">Enter number of Non-Pyxis Medication Storage Areas (Sublocation)</label>
                     <input type="number" data-req="dept-${i}" value="${esc(d.numNonPyxis)}" ${onch(i,'numNonPyxis')} min="0" />
-                    <span class="text-muted">Ex: Refrigerators, freezers, shelves, incubators, kitcheck, overflow, CII Safe, etc.</span>
+                    <span class="text-muted">Ex: Refrigerators, freezers, shelves, incubators, kitcheck, overflow, narcotic storage, etc..</span>
                 </div>
             </div>
         </div>
@@ -504,15 +508,15 @@ function renderDeptForm(d, i) {
         </div>
 
         <!-- SUBLOCATIONS -->
-        <div class="section-header">Sublocation Name and Type</div>
+        <div class="section-header">Main/Satellite Pharmacy Sublocation Name and Type</div>
         <div class="section-body">
             <div style="background:#fffbeb; border:2px solid #f6ad55; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#c05621; font-weight:600;">
-                NOTE: Sublocations listed here should represent areas <em>within this pharmacy</em> where <strong>medication stock</strong> is stored &mdash; not supply storage areas. Examples include shelves, refrigerators, freezers, and designated dispensing zones.
+                NOTE: Sublocations listed here should represent areas <u><strong>within this pharmacy</strong></u> where <strong>medication stock</strong> is stored &mdash; not supply storage areas. Examples include shelves, refrigerators, freezers, and designated dispensing zones.
             </div>
             <p class="text-muted mb-2">Please select or list <strong>all sublocations that apply</strong> to this pharmacy. Choose from the dropdowns or select "Other (free text)" to enter a custom value. At least one sublocation is required.</p>
             <table class="subloc-table">
                 <thead>
-                    <tr><th>Sublocation Type *</th><th>Sublocation Name *</th><th style="width:60px;"></th></tr>
+                    <tr><th>Main/Sat Pharmacy Sublocation Type <span style="color:#e53e3e;">*</span></th><th>Main/Sat Pharmacy Sublocation Name <span style="color:#e53e3e;">*</span></th><th style="width:60px;"></th></tr>
                 </thead>
                 <tbody>
                     ${(d.sublocations||[]).map((sl, si) => `
@@ -545,12 +549,12 @@ function renderDeptForm(d, i) {
         <div class="section-header">Ordering Information</div>
         <div class="section-body">
             <div class="form-row-3">
-                <div class="form-group"><label class="required">Order Frequency</label><input type="text" data-req="dept-${i}" value="${esc(d.orderFrequency)}" ${onch(i,'orderFrequency')} placeholder="e.g., Daily, Weekly, Twice Daily" /></div>
+                <div class="form-group"><label class="required">Order Frequency</label><input type="text" data-req="dept-${i}" value="${esc(d.orderFrequency)}" ${onch(i,'orderFrequency')} placeholder="e.g., Daily, Twice Daily, Weekly, Weekdays only, ..." /></div>
                 <div class="form-group">
-                    <label class="required">Time of Day of Ordering</label>
-                    <div class="radio-group" data-req-radio="dept-${i}" data-field="orderTime-${i}">
-                        <label><input type="radio" name="orderTime-${i}" value="AM/Early Morning" ${d.orderTime==='AM/Early Morning'?'checked':''} onchange="${sd(i,'orderTime')}=this.value" /> AM/Early Morning</label>
-                        <label><input type="radio" name="orderTime-${i}" value="PM/Mid Afternoon" ${d.orderTime==='PM/Mid Afternoon'?'checked':''} onchange="${sd(i,'orderTime')}=this.value" /> PM/Mid Afternoon</label>
+                    <label class="required">Time of Day of Ordering (select all that apply)</label>
+                    <div class="radio-group" data-orderTime="dept-${i}">
+                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('AM/Early Morning')?'checked':''} onchange="toggleMulti(${i},'orderTime','AM/Early Morning',this.checked)" /> AM/Early Morning</label>
+                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('PM/Mid Afternoon')?'checked':''} onchange="toggleMulti(${i},'orderTime','PM/Mid Afternoon',this.checked)" /> PM/Mid Afternoon</label>
                     </div>
                 </div>
                 <div class="form-group">
@@ -763,6 +767,15 @@ function validateSurvey() {
         // Serviced depts - require at least one selection or other text
         if (!(d.servicedDepts && d.servicedDepts.length) && !(d.servicedDeptsOther && d.servicedDeptsOther.trim())) {
             errors.push(`Pharmacy ${i+1}: Select at least one Non-Inpatient Department/Clinic or enter Other.`);
+        }
+        // Order time: at least one checkbox required
+        if (!Array.isArray(d.orderTime) || d.orderTime.length === 0) {
+            const otGroup = document.querySelector(`[data-orderTime="dept-${i}"]`);
+            if (otGroup) { otGroup.style.border = '2px solid #e53e3e'; otGroup.style.borderRadius = '6px'; otGroup.style.padding = '4px 8px'; }
+            errors.push(`Pharmacy ${i+1}: Select at least one Time of Day of Ordering.`);
+        } else {
+            const otGroup = document.querySelector(`[data-orderTime="dept-${i}"]`);
+            if (otGroup) { otGroup.style.border = ''; otGroup.style.borderRadius = ''; otGroup.style.padding = '4px 0'; }
         }
     });
 
