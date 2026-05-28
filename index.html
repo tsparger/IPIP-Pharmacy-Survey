@@ -224,18 +224,28 @@
 <script>
 // ============ STATE ============
 const DEFAULT_SUBLOC_NAMES = [
-    'Tab/Cap Oral', 'Injectable', 'Topical', 'Ophthalmic', 'Otic',
-    'Non-standard OP', 'Non-standard IV',
+    'Biologics', 'Chemotherapy',
     'Freezer 1', 'Freezer 2',
-    'Refrigerator 1', 'Refrigerator 2', 'Refrigerator 3'
+    'Inhaler', 'Injectable', 'Nasal', 'Nebulizer',
+    'Non-standard IV', 'Non-standard OP',
+    'Ophthalmic', 'Oral Liquid', 'Oral Tab/Cap', 'Otic',
+    'Patch', 'Rectal',
+    'Refrigerator 1', 'Refrigerator 2', 'Refrigerator 3',
+    'Topical', 'Vaccine', 'Vaginal'
 ];
 
 const DEFAULT_SUBLOC_TYPES = [
-    'Main Area', 'Shelf', 'Refrigerator', 'Freezer',
-    'Cleanroom', 'Overstock Storage',
-    'Non-Standard', 'Flammables', 'Hazards', 'Incubator',
-    'Narcotic Vault', 'Pyxis Machine', 'Crash Cart',
-    'Carousel', 'KitCheck storage', 'Tray Storage'
+    'Carousel', 'Cleanroom', 'Crash Cart',
+    'Flammables', 'Freezer',
+    'Hazards', 'Incubator',
+    'KitCheck storage',
+    'Main Area',
+    'Narcotic Vault', 'Non-Standard',
+    'Overstock Storage',
+    'Pyxis Machine',
+    'Refrigerator',
+    'Shelf',
+    'Tray Storage'
 ];
 
 let state = loadState();
@@ -250,12 +260,12 @@ function defaultState() {
 }
 function loadState() {
     try {
-        const s = JSON.parse(localStorage.getItem('pharmacy-survey-state-v5'));
+        const s = JSON.parse(localStorage.getItem('pharmacy-survey-state-v6'));
         if (s && s.sublocTypes) return s;
         return defaultState();
     } catch { return defaultState(); }
 }
-function saveState() { localStorage.setItem('pharmacy-survey-state-v5', JSON.stringify(state)); }
+function saveState() { localStorage.setItem('pharmacy-survey-state-v6', JSON.stringify(state)); }
 
 function toast(msg, isError) {
     const t = document.getElementById('toast');
