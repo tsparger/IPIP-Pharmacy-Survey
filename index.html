@@ -698,6 +698,15 @@ function handleDepartmentChange(i, value) {
         }
     }
     d.specialty = 'IP Pharmacy';
+    // If this pharmacy was previously submitted-but-not-validated, restore
+    // the prior responses so the user can pick up where they left off.
+    const draft = getPendingDraft(d.region, d.location, value);
+    if (draft) {
+        Object.keys(draft).forEach(k => {
+            if (k !== 'region' && k !== 'location' && k !== 'department') d[k] = draft[k];
+        });
+        toast('Restored your prior responses for this pharmacy.');
+    }
     renderSurvey();
 }
 function handleSupplyingPharmacyChange(i, value) {
@@ -876,6 +885,7 @@ async function submitSurvey() {
             const result = await flowPost(URLS.submit, data);
             if (result && result.success) {
                 markCompleted(surveyDepts);
+                savePendingDrafts(surveyDepts);
                 clearActiveDraft();
                 showSuccessScreen(nameVal, now, surveyDepts.length);
             } else {
@@ -928,6 +938,36 @@ function checkAdmin() {
     if (params.has('admin')) {
         document.getElementById('nav-admin').classList.remove('hidden');
     }
+}
+
+// ============ PENDING-DRAFT CACHE (per-browser) ============
+// Stores the full pharmacy entry for any pharmacy that was submitted but
+// NOT confirmed (pharmacyDispenseValidated !== 'Yes'). Keyed by
+// region||location||department. When the user later picks the same
+// pharmacy again, every field is restored from here so they can pick
+// up where they left off.
+function getPendingDrafts() {
+    try { return JSON.parse(localStorage.getItem('pharmacy-pending-drafts') || '{}'); }
+    catch { return {}; }
+}
+function savePendingDrafts(depts) {
+    const map = getPendingDrafts();
+    depts.forEach(d => {
+        if (!d.region || !d.location || !d.department) return;
+        if (d.location === '__other__' || d.department === '__other__') return;
+        const key = `${d.region}||${d.location}||${d.department}`;
+        if (d.pharmacyDispenseValidated === 'Yes') {
+            delete map[key];
+        } else {
+            map[key] = d;
+        }
+    });
+    localStorage.setItem('pharmacy-pending-drafts', JSON.stringify(map));
+}
+function getPendingDraft(region, location, department) {
+    if (!region || !location || !department) return null;
+    if (location === '__other__' || department === '__other__') return null;
+    return getPendingDrafts()[`${region}||${location}||${department}`] || null;
 }
 
 // ============ COMPLETION TRACKING (per-browser) ============
