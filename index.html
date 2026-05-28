@@ -509,6 +509,24 @@ function renderDeptForm(d, i) {
             </div>
         </div>
 
+        <!-- ORDERING -->
+        <div class="section-header">Ordering Information</div>
+        <div class="section-body">
+            <div class="form-row">
+                <div class="form-group"><label class="required">Order Frequency</label><input type="text" data-req="dept-${i}" value="${esc(d.orderFrequency)}" ${onch(i,'orderFrequency')} placeholder="e.g., Daily, Twice Daily, Weekly, Weekdays only, ..." /></div>
+                <div class="form-group">
+                    <label class="required">Time of Day of Ordering (select all that apply)</label>
+                    <div class="radio-group" data-orderTime="dept-${i}">
+                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('AM/Early Morning')?'checked':''} onchange="toggleMulti(${i},'orderTime','AM/Early Morning',this.checked)" /> AM/Early Morning</label>
+                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('PM/Mid Afternoon')?'checked':''} onchange="toggleMulti(${i},'orderTime','PM/Mid Afternoon',this.checked)" /> PM/Mid Afternoon</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group"><label>Comments</label>
+                <textarea ${onch(i,'comments')} placeholder="Additional comments...">${esc(d.comments)}</textarea>
+            </div>
+        </div>
+
         <!-- SUBLOCATIONS -->
         <div class="section-header">Main/Satellite Pharmacy Sublocation Name and Type</div>
         <div class="section-body">
@@ -603,28 +621,10 @@ function renderDeptForm(d, i) {
         </div>`;
         })()}
 
-        <!-- ORDERING -->
-        <div class="section-header">Ordering Information</div>
-        <div class="section-body">
-            <div class="form-row">
-                <div class="form-group"><label class="required">Order Frequency</label><input type="text" data-req="dept-${i}" value="${esc(d.orderFrequency)}" ${onch(i,'orderFrequency')} placeholder="e.g., Daily, Twice Daily, Weekly, Weekdays only, ..." /></div>
-                <div class="form-group">
-                    <label class="required">Time of Day of Ordering (select all that apply)</label>
-                    <div class="radio-group" data-orderTime="dept-${i}">
-                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('AM/Early Morning')?'checked':''} onchange="toggleMulti(${i},'orderTime','AM/Early Morning',this.checked)" /> AM/Early Morning</label>
-                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('PM/Mid Afternoon')?'checked':''} onchange="toggleMulti(${i},'orderTime','PM/Mid Afternoon',this.checked)" /> PM/Mid Afternoon</label>
-                    </div>
-                </div>
-            </div>
-            <div class="form-group"><label>Comments</label>
-                <textarea ${onch(i,'comments')} placeholder="Additional comments...">${esc(d.comments)}</textarea>
-            </div>
-        </div>
-
         <div class="section-header">Confirmation</div>
         <div class="section-body">
             <div class="form-group">
-                <label class="required">Check if pharmacy dispense information is validated</label>
+                <label class="required">I confirm that the pharmacy dispensing information above is correct and validated</label>
                 <div class="radio-group" data-req-radio="dept-${i}" data-field="pharmacyDispenseValidated-${i}">
                     <label><input type="radio" name="pharmacyDispenseValidated-${i}" value="Yes" ${d.pharmacyDispenseValidated==='Yes'?'checked':''} onchange="${sd(i,'pharmacyDispenseValidated')}=this.value" /> Yes</label>
                     <label><input type="radio" name="pharmacyDispenseValidated-${i}" value="No" ${d.pharmacyDispenseValidated==='No'?'checked':''} onchange="${sd(i,'pharmacyDispenseValidated')}=this.value" /> No</label>
