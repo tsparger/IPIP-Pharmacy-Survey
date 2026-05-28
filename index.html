@@ -120,7 +120,7 @@
             .form-row, .form-row-3, .form-row-4 { grid-template-columns: 1fr; }
         }
     </style>
-    <script src="survey-data.js?v=20260528a"></script>
+    <script src="survey-data.js?v=20260528b"></script>
 </head>
 <body>
 
@@ -397,7 +397,8 @@ function makeDept() {
         sublocations: [makeSublocation()],
         orderFrequency:'', orderTime:'',
         servicedDepts: [], servicedDeptsOther: '',
-        comments: ''
+        comments: '',
+        pharmacyDispenseValidated: ''
     };
 }
 
@@ -437,7 +438,7 @@ function renderDeptForm(d, i) {
                 <div class="form-group"><label class="required">Location</label>
                     <select data-req="dept-${i}" onchange="handleLocationChange(${i}, this.value)" ${!d.region?'disabled':''}>
                         <option value="">${d.region ? '-- Select Location --' : '-- Select Region first --'}</option>
-                        ${d.region && SURVEY_DATA.pharmacyLocations[d.region] ? SURVEY_DATA.pharmacyLocations[d.region].map(l => `<option value="${esc(l)}" ${d.location===l?'selected':''}>${esc(l)}</option>`).join('') : ''}
+                        ${d.region && SURVEY_DATA.pharmacyLocations[d.region] ? SURVEY_DATA.pharmacyLocations[d.region].map(l => { const prefix = isLocationCompleted(d.region, l) ? '✅ ' : ''; return `<option value="${esc(l)}" ${d.location===l?'selected':''}>${esc(prefix + l)}</option>`; }).join('') : ''}
                         <option value="__other__" ${d.location==='__other__'?'selected':''}>Other (enter manually)</option>
                     </select>
                     ${d.location==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.locationOther||'')}" onchange="surveyDepts[${i}].locationOther=this.value" placeholder="Enter location name..." style="margin-top:6px;" />` : ''}
@@ -447,7 +448,7 @@ function renderDeptForm(d, i) {
                 <div class="form-group"><label class="required">Department</label>
                     <select data-req="dept-${i}" onchange="handleDepartmentChange(${i}, this.value)" ${!d.location?'disabled':''}>
                         <option value="">${d.location ? '-- Select Department --' : '-- Select Location first --'}</option>
-                        ${d.region && d.location && d.location !== '__other__' && SURVEY_DATA.pharmacyDepartments[d.region] && SURVEY_DATA.pharmacyDepartments[d.region][d.location] ? SURVEY_DATA.pharmacyDepartments[d.region][d.location].map(rec => `<option value="${esc(rec.dept)}" ${d.department===rec.dept?'selected':''}>${esc(rec.dept)}</option>`).join('') : ''}
+                        ${d.region && d.location && d.location !== '__other__' && SURVEY_DATA.pharmacyDepartments[d.region] && SURVEY_DATA.pharmacyDepartments[d.region][d.location] ? SURVEY_DATA.pharmacyDepartments[d.region][d.location].map(rec => { const prefix = isPharmacyCompleted(d.region, d.location, rec.dept) ? '✅ ' : ''; return `<option value="${esc(rec.dept)}" ${d.department===rec.dept?'selected':''}>${esc(prefix + rec.dept)}</option>`; }).join('') : ''}
                         <option value="__other__" ${d.department==='__other__'?'selected':''}>Other (enter manually)</option>
                     </select>
                     ${d.department==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.departmentOther||'')}" onchange="surveyDepts[${i}].departmentOther=this.value" placeholder="Enter department name..." style="margin-top:6px;" />` : ''}
@@ -459,16 +460,6 @@ function renderDeptForm(d, i) {
                 <div class="form-group"><label class="required">City</label><input type="text" data-req="dept-${i}" class="${d.city?'autofilled':''}" value="${esc(d.city)}" ${onch(i,'city')} placeholder="Auto-filled (editable)" /></div>
                 <div class="form-group"><label class="required">State</label><input type="text" data-req="dept-${i}" class="${d.state?'autofilled':''}" value="${esc(d.state)}" ${onch(i,'state')} placeholder="Auto-filled (editable)" /></div>
                 <div class="form-group"><label class="required">Zip Code</label><input type="text" data-req="dept-${i}" class="${d.zip?'autofilled':''}" value="${esc(d.zip)}" ${onch(i,'zip')} placeholder="Auto-filled (editable)" /></div>
-            </div>
-            <div class="form-row">
-                <div class="check-row">
-                    <input type="checkbox" id="dispVal-${i}" ${d.dispenseValidated?'checked':''} ${onchk(i,'dispenseValidated')} />
-                    <label for="dispVal-${i}">Check if Department dispense info is validated</label>
-                </div>
-                <div class="check-row">
-                    <input type="checkbox" id="noBuild-${i}" ${d.noBuildNeeded?'checked':''} ${onchk(i,'noBuildNeeded')} />
-                    <label for="noBuild-${i}">Check if no build is needed for this Department</label>
-                </div>
             </div>
         </div>
 
@@ -590,6 +581,18 @@ function renderDeptForm(d, i) {
             </div>
             <div class="form-group"><label>Comments</label>
                 <textarea ${onch(i,'comments')} placeholder="Additional comments...">${esc(d.comments)}</textarea>
+            </div>
+        </div>
+
+        <div class="section-header">Confirmation</div>
+        <div class="section-body">
+            <div class="form-group">
+                <label class="required">Check if pharmacy dispense information is validated</label>
+                <div class="radio-group" data-req-radio="dept-${i}" data-field="pharmacyDispenseValidated-${i}">
+                    <label><input type="radio" name="pharmacyDispenseValidated-${i}" value="Yes" ${d.pharmacyDispenseValidated==='Yes'?'checked':''} onchange="${sd(i,'pharmacyDispenseValidated')}=this.value" /> Yes</label>
+                    <label><input type="radio" name="pharmacyDispenseValidated-${i}" value="No" ${d.pharmacyDispenseValidated==='No'?'checked':''} onchange="${sd(i,'pharmacyDispenseValidated')}=this.value" /> No</label>
+                </div>
+                <div class="completion-hint" style="font-size:12px; padding:4px 8px; border-radius:4px; margin-top:4px; background:#edf2f7; color:#4a5568;">A "Yes" answer marks this pharmacy as validated and shows a green check next to it in the Location and Department dropdowns going forward.</div>
             </div>
         </div>
     </div>`;
@@ -804,6 +807,7 @@ async function submitSurvey() {
         try {
             const result = await flowPost(URLS.submit, data);
             if (result && result.success) {
+                markCompleted(surveyDepts);
                 clearActiveDraft();
                 showSuccessScreen(nameVal, now, surveyDepts.length);
             } else {
@@ -856,6 +860,40 @@ function checkAdmin() {
     if (params.has('admin')) {
         document.getElementById('nav-admin').classList.remove('hidden');
     }
+}
+
+// ============ COMPLETION TRACKING (per-browser) ============
+// A pharmacy department is "completed" once it has been submitted with
+// "Check if pharmacy dispense information is validated" answered Yes.
+// Completed pharmacies show a green ✅ in the Location and Department
+// dropdowns so users can see what is already done.
+function getCompleted() {
+    try { return JSON.parse(localStorage.getItem('pharmacy-completed') || '{}'); }
+    catch { return {}; }
+}
+function markCompleted(depts) {
+    const map = getCompleted();
+    depts.forEach(d => {
+        if (!d.region || !d.location || !d.department) return;
+        if (d.location === '__other__' || d.department === '__other__') return;
+        if (d.pharmacyDispenseValidated !== 'Yes') return;
+        const key = `${d.region}||${d.location}`;
+        if (!map[key]) map[key] = [];
+        if (!map[key].includes(d.department)) map[key].push(d.department);
+    });
+    localStorage.setItem('pharmacy-completed', JSON.stringify(map));
+}
+function isPharmacyCompleted(region, location, department) {
+    const map = getCompleted();
+    const key = `${region}||${location}`;
+    return !!(map[key] && map[key].includes(department));
+}
+function isLocationCompleted(region, location) {
+    const D = (typeof SURVEY_DATA !== 'undefined') ? SURVEY_DATA : null;
+    if (!D || !D.pharmacyDepartments || !D.pharmacyDepartments[region]) return false;
+    const all = (D.pharmacyDepartments[region][location] || []).map(p => p.dept);
+    if (!all.length) return false;
+    return all.every(dep => isPharmacyCompleted(region, location, dep));
 }
 
 // ============ ACTIVE-DRAFT AUTOSAVE ============
