@@ -569,7 +569,7 @@ function renderDeptForm(d, i) {
                         <button class="btn btn-danger btn-sm" onclick="surveyDepts[${i}].sublocations.splice(${si},1);renderSurvey()">Remove</button>
                     </div>
                     <div style="margin-bottom:10px;">
-                        <label style="font-size:13px; color:#4a5568;">Main/Sat Pharmacy Sublocation Type <span style="color:#e53e3e;">*</span></label>
+                        <label style="display:block; font-size:14px; font-weight:700; color:#003B71; text-transform:uppercase; letter-spacing:.02em; margin-bottom:6px; padding-bottom:4px; border-bottom:2px solid #cbd5e0;">Main/Sat Pharmacy Sublocation Type <span style="color:#e53e3e;">*</span></label>
                         <div class="chip-grid">
                             ${state.sublocTypes.map((t, ti) => `<span class="chip ${sl.type===t?'selected':''}" onclick="handleSublocTypeChange(${i},${si},state.sublocTypes[${ti}])">${esc(t)}</span>`).join('')}
                             <span class="chip chip-other ${sl.type==='__other__'?'selected':''}" onclick="handleSublocTypeChange(${i},${si},'__other__')">Other (free text)</span>
@@ -577,7 +577,7 @@ function renderDeptForm(d, i) {
                         ${sl.type==='__other__' ? `<input type="text" data-req-subloc="dept-${i}" value="${esc(sl.typeOther)}" oninput="surveyDepts[${i}].sublocations[${si}].typeOther=this.value" onchange="surveyDepts[${i}].sublocations[${si}].typeOther=this.value" placeholder="Enter sublocation type..." style="margin-top:6px;" />` : ''}
                     </div>
                     <div>
-                        <label style="font-size:13px; color:#4a5568;">Main/Sat Pharmacy Sublocation Name <span style="color:#e53e3e;">*</span></label>
+                        <label style="display:block; font-size:14px; font-weight:700; color:#003B71; text-transform:uppercase; letter-spacing:.02em; margin-bottom:6px; padding-bottom:4px; border-bottom:2px solid #cbd5e0;">Main/Sat Pharmacy Sublocation Name <span style="color:#e53e3e;">*</span></label>
                         <div class="chip-grid">
                             ${state.sublocNames.map((n, ni) => `<span class="chip ${sl.name===n?'selected':''}" onclick="handleSublocNameChange(${i},${si},state.sublocNames[${ni}])">${esc(n)}</span>`).join('')}
                             <span class="chip chip-other ${sl.name==='__other__'?'selected':''}" onclick="handleSublocNameChange(${i},${si},'__other__')">Other (free text)</span>
