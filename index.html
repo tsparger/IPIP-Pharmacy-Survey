@@ -413,6 +413,7 @@ function makeDept() {
     return {
         region:'', location:'', locationOther:'', department:'', departmentOther:'',
         specialty:'IP Pharmacy', address:'', addressKey:'', city:'', state:'', zip:'',
+        pharmacyUsage:'', pharmacyUsageOther:'',
         dispenseValidated: false, noBuildNeeded: false,
         onelinkLocDesc:'', onelinkLocCode:'', onelinkCostCenter:'', glString:'', dea:'', stateLicense:'',
         mainSupplyingPharmacy:'', mainSupplyingPharmacyOther:'', supplyingRxLocCode:'',
@@ -488,6 +489,33 @@ function renderDeptForm(d, i) {
                 <div class="form-group"><label class="required">State</label><input type="text" data-req="dept-${i}" class="${d.state?'autofilled':''}" value="${esc(d.state)}" ${onch(i,'state')} placeholder="Auto-filled (editable)" /></div>
                 <div class="form-group"><label class="required">Zip Code</label><input type="text" data-req="dept-${i}" class="${d.zip?'autofilled':''}" value="${esc(d.zip)}" ${onch(i,'zip')} placeholder="Auto-filled (editable)" /></div>
             </div>
+            <div class="form-group">
+                <label class="required">How is this pharmacy used? (select one)</label>
+                <select data-req="dept-${i}" onchange="surveyDepts[${i}].pharmacyUsage=this.value; renderSurvey()">
+                    <option value="">-- Select pharmacy use --</option>
+                    <option value="Storage and actively dispenses medications" ${d.pharmacyUsage==='Storage and actively dispenses medications'?'selected':''}>This pharmacy is used for medication storage and actively dispenses medications</option>
+                    <option value="Storage and does not dispense medications" ${d.pharmacyUsage==='Storage and does not dispense medications'?'selected':''}>This pharmacy is used for medication storage and does not dispense medications</option>
+                    <option value="Administrative and does not dispense medications" ${d.pharmacyUsage==='Administrative and does not dispense medications'?'selected':''}>This pharmacy is used for administrative activities and does not dispense medications</option>
+                    <option value="__other__" ${d.pharmacyUsage==='__other__'?'selected':''}>Other</option>
+                </select>
+                ${d.pharmacyUsage==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.pharmacyUsageOther||'')}" oninput="surveyDepts[${i}].pharmacyUsageOther=this.value" onchange="surveyDepts[${i}].pharmacyUsageOther=this.value" placeholder="Describe how this pharmacy is used..." style="margin-top:6px;" />` : ''}
+            </div>
+        </div>
+
+        <!-- ONELINK -->
+        <div class="section-header">OneLink Information</div>
+        <div class="section-body">
+            <p class="text-muted mb-2">All OneLink fields are auto-filled when a Main Supplying Pharmacy is selected below. You can edit any field if needed.</p>
+            <div class="form-row-3">
+                <div class="form-group"><label class="required">OneLink Location Code Description</label><input type="text" data-req="dept-${i}" class="${d.onelinkLocDesc?'autofilled':''}" value="${esc(d.onelinkLocDesc)}" ${onch(i,'onelinkLocDesc')} placeholder="Auto-filled (editable)" /></div>
+                <div class="form-group"><label class="required">OneLink Location Code</label><input type="text" data-req="dept-${i}" class="${d.onelinkLocCode?'autofilled':''}" value="${esc(d.onelinkLocCode)}" ${onch(i,'onelinkLocCode')} placeholder="Auto-filled (editable)" /></div>
+                <div class="form-group"><label class="required">OneLink Cost Center</label><input type="text" data-req="dept-${i}" class="${d.onelinkCostCenter?'autofilled':''}" value="${esc(d.onelinkCostCenter)}" ${onch(i,'onelinkCostCenter')} placeholder="Auto-filled (editable)" /></div>
+            </div>
+            <div class="form-row-3">
+                <div class="form-group"><label class="required">Full GL String</label><input type="text" data-req="dept-${i}" class="${d.glString?'autofilled':''}" value="${esc(d.glString)}" ${onch(i,'glString')} placeholder="Auto-filled (editable)" /></div>
+                <div class="form-group"><label class="required">DEA REG Number</label><input type="text" data-req="dept-${i}" class="${d.dea?'autofilled':''}" value="${esc(d.dea)}" ${onch(i,'dea')} placeholder="Auto-filled (editable)" /></div>
+                <div class="form-group"><label class="required">State License Number</label><input type="text" data-req="dept-${i}" class="${d.stateLicense?'autofilled':''}" value="${esc(d.stateLicense)}" ${onch(i,'stateLicense')} placeholder="Auto-filled (editable)" /></div>
+            </div>
         </div>
 
         <!-- SUPPLYING PHARMACY -->
@@ -504,54 +532,13 @@ function renderDeptForm(d, i) {
                 </div>
                 <div class="form-group"><label class="required">Supplying RX Location Code</label><input type="text" data-req="dept-${i}" class="${d.supplyingRxLocCode?'autofilled':''}" value="${esc(d.supplyingRxLocCode)}" ${onch(i,'supplyingRxLocCode')} placeholder="Auto-filled (editable)" /></div>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="required">Do you have any additional active pyxis machines inside your pharmacy besides one CII safe vault?</label>
-                    <div class="radio-group" data-req-radio="dept-${i}" data-field="additionalPyxis-${i}">
-                        <label><input type="radio" name="additionalPyxis-${i}" value="Yes" ${d.additionalPyxis==='Yes'?'checked':''} onchange="handleAdditionalPyxisChange(${i},'Yes')" /> Yes</label>
-                        <label><input type="radio" name="additionalPyxis-${i}" value="No" ${d.additionalPyxis==='No'?'checked':''} onchange="handleAdditionalPyxisChange(${i},'No')" /> No</label>
-                    </div>
-                    ${d.additionalPyxis==='Yes' ? `<textarea data-req="dept-${i}" ${onch(i,'additionalPyxisInfo')} placeholder="List the additional pyxis machines inside the pharmacy (names, locations, purpose, etc.)...">${esc(d.additionalPyxisInfo)}</textarea>` : ''}
+            <div class="form-group">
+                <label class="required">Do you have any additional active pyxis machines inside your pharmacy besides one CII safe vault?</label>
+                <div class="radio-group" data-req-radio="dept-${i}" data-field="additionalPyxis-${i}">
+                    <label><input type="radio" name="additionalPyxis-${i}" value="Yes" ${d.additionalPyxis==='Yes'?'checked':''} onchange="handleAdditionalPyxisChange(${i},'Yes')" /> Yes</label>
+                    <label><input type="radio" name="additionalPyxis-${i}" value="No" ${d.additionalPyxis==='No'?'checked':''} onchange="handleAdditionalPyxisChange(${i},'No')" /> No</label>
                 </div>
-                <div class="form-group">
-                    <label class="required">Enter number of Non-Pyxis Medication Storage Areas (Sublocation)</label>
-                    <input type="number" data-req="dept-${i}" value="${esc(d.numNonPyxis)}" ${onch(i,'numNonPyxis')} min="0" />
-                    <span class="text-muted">Ex: Refrigerators, freezers, shelves, incubators, kitcheck, overflow, narcotic storage, etc..</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- ONELINK -->
-        <div class="section-header">OneLink Information</div>
-        <div class="section-body">
-            <p class="text-muted mb-2">All OneLink fields are auto-filled when a Main Supplying Pharmacy is selected above. You can edit any field if needed.</p>
-            <div class="form-row-3">
-                <div class="form-group"><label class="required">OneLink Location Code Description</label><input type="text" data-req="dept-${i}" class="${d.onelinkLocDesc?'autofilled':''}" value="${esc(d.onelinkLocDesc)}" ${onch(i,'onelinkLocDesc')} placeholder="Auto-filled (editable)" /></div>
-                <div class="form-group"><label class="required">OneLink Location Code</label><input type="text" data-req="dept-${i}" class="${d.onelinkLocCode?'autofilled':''}" value="${esc(d.onelinkLocCode)}" ${onch(i,'onelinkLocCode')} placeholder="Auto-filled (editable)" /></div>
-                <div class="form-group"><label class="required">OneLink Cost Center</label><input type="text" data-req="dept-${i}" class="${d.onelinkCostCenter?'autofilled':''}" value="${esc(d.onelinkCostCenter)}" ${onch(i,'onelinkCostCenter')} placeholder="Auto-filled (editable)" /></div>
-            </div>
-            <div class="form-row-3">
-                <div class="form-group"><label class="required">Full GL String</label><input type="text" data-req="dept-${i}" class="${d.glString?'autofilled':''}" value="${esc(d.glString)}" ${onch(i,'glString')} placeholder="Auto-filled (editable)" /></div>
-                <div class="form-group"><label class="required">DEA REG Number</label><input type="text" data-req="dept-${i}" class="${d.dea?'autofilled':''}" value="${esc(d.dea)}" ${onch(i,'dea')} placeholder="Auto-filled (editable)" /></div>
-                <div class="form-group"><label class="required">State License Number</label><input type="text" data-req="dept-${i}" class="${d.stateLicense?'autofilled':''}" value="${esc(d.stateLicense)}" ${onch(i,'stateLicense')} placeholder="Auto-filled (editable)" /></div>
-            </div>
-        </div>
-
-        <!-- ORDERING -->
-        <div class="section-header">Ordering Information</div>
-        <div class="section-body">
-            <div class="form-row">
-                <div class="form-group"><label class="required">Order Frequency</label><input type="text" data-req="dept-${i}" value="${esc(d.orderFrequency)}" ${onch(i,'orderFrequency')} placeholder="e.g., Daily, Twice Daily, Weekly, Weekdays only, ..." /></div>
-                <div class="form-group">
-                    <label class="required">Time of Day of Ordering (select all that apply)</label>
-                    <div class="radio-group" data-orderTime="dept-${i}">
-                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('AM/Early Morning')?'checked':''} onchange="toggleMulti(${i},'orderTime','AM/Early Morning',this.checked)" /> AM/Early Morning</label>
-                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('PM/Mid Afternoon')?'checked':''} onchange="toggleMulti(${i},'orderTime','PM/Mid Afternoon',this.checked)" /> PM/Mid Afternoon</label>
-                    </div>
-                </div>
-            </div>
-            <div class="form-group"><label>Comments</label>
-                <textarea ${onch(i,'comments')} placeholder="Additional comments...">${esc(d.comments)}</textarea>
+                ${d.additionalPyxis==='Yes' ? `<textarea data-req="dept-${i}" ${onch(i,'additionalPyxisInfo')} placeholder="List the additional pyxis machines inside the pharmacy (names, locations, purpose, etc.)...">${esc(d.additionalPyxisInfo)}</textarea>` : ''}
             </div>
         </div>
 
@@ -561,6 +548,7 @@ function renderDeptForm(d, i) {
             <div style="background:#fffbeb; border:2px solid #f6ad55; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#c05621; font-weight:600;">
                 NOTE: Sublocations listed here should represent areas <u><strong>within this pharmacy</strong></u> where <strong>medication stock</strong> is stored &mdash; not supply storage areas. Examples include shelves, refrigerators, freezers, and designated dispensing zones.
             </div>
+            <p class="mb-2" style="font-size:13px;"><strong>What is a sublocation?</strong> An area within the pharmacy that stores a group or type of medication (e.g., a refrigerator, freezer, shelf, or designated dispensing zone).</p>
             <p class="text-muted mb-2">For each sublocation, click a <strong>Type</strong> and a <strong>Name</strong> below (every option is shown — no scrolling). Click the selected chip again to clear it, or use <strong>Other (free text)</strong> for a custom value. At least one sublocation is required.</p>
             ${(d.sublocations||[]).map((sl, si) => `
                 <div style="border:1px solid #cbd5e0; border-radius:8px; padding:12px; margin-bottom:10px; background:white;">
@@ -611,14 +599,16 @@ function renderDeptForm(d, i) {
                 </div>
             </div>
             <div class="form-group" style="margin-top:8px;">
-                <label class="${d.sharedInventory==='Yes'?'required':''}">Shared/Associated Departments and Clinics serviced by this pharmacy</label>
+                <label>Shared/Associated Departments and Clinics serviced by this inpatient pharmacy</label>
                 ${(() => {
                     const zm = (d.zip||'').match(/\d{5}/);
-                    const otherInput = `<input type="text" placeholder="Other (free text) - type additional departments..." ${onch(i,'servicedDeptsOther')} value="${esc(d.servicedDeptsOther||'')}" />`;
+                    const otherInput = `<input type="text" placeholder="Other (free text) - type additional departments/clinics..." ${onch(i,'servicedDeptsOther')} value="${esc(d.servicedDeptsOther||'')}" />`;
                     // Currently-selected entries (skip the 'No / N/A' sentinel), each removable.
+                    // Wrapped in an id'd container so checkbox toggles can refresh it without a full re-render.
                     const selectedChips = (d.servicedDepts||[]).map((s, idx) => s === 'No / N/A' ? '' :
                         `<span class="chip selected" style="cursor:default;">${esc(s)} <span style="cursor:pointer; font-weight:700; margin-left:6px;" title="Remove" onclick="removeServicedDept(${i},${idx})">×</span></span>`).join(' ');
-                    const selectedBlock = selectedChips.trim() ? `<div class="chip-grid" style="margin-bottom:8px;">${selectedChips}</div>` : '';
+                    const selectedInner = selectedChips.trim() ? `<div class="chip-grid" style="margin-bottom:8px;">${selectedChips}</div>` : '';
+                    const selectedBlock = `<div id="servicedSelected-${i}">${selectedInner}</div>`;
                     if (!d.region || !zm) {
                         return `${selectedBlock}<div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">Select a Region, Location, and Department above first (so a Zip Code is filled in) to pick departments in the same zip code.</div>`;
                     }
@@ -628,42 +618,54 @@ function renderDeptForm(d, i) {
                     if (!locations.length) {
                         return `${selectedBlock}<div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">No departments found in zip code ${esc(zip)}. Use the "Other" box below to add any shared/associated departments or clinics.</div>${otherInput}`;
                     }
-                    const deptsForLoc = (d.sharedPickLocation && zipMap[d.sharedPickLocation]) ? zipMap[d.sharedPickLocation] : [];
-                    const locSelect = `<select onchange="handleSharedLocationPick(${i}, this.value)">
-                        <option value="">-- Select Location --</option>
-                        ${locations.map(l => `<option value="${esc(l)}" ${d.sharedPickLocation===l?'selected':''}>${esc(l)}</option>`).join('')}
-                    </select>`;
-                    const deptSelect = `<select onchange="surveyDepts[${i}].sharedPickDept=this.value" ${!d.sharedPickLocation?'disabled':''}>
-                        <option value="">${d.sharedPickLocation ? '-- Select Department --' : '-- Select Location first --'}</option>
-                        ${deptsForLoc.map(dp => `<option value="${esc(dp)}" ${d.sharedPickDept===dp?'selected':''}>${esc(dp)}</option>`).join('')}
-                    </select>`;
-                    const hint = `<div class="text-muted" style="margin:0 0 4px; font-size:12px;">Showing departments in zip code ${esc(zip)}. Pick a Location, then a Department, then <strong>Add</strong> — repeat to add several.</div>`;
-                    return `${selectedBlock}${hint}<div class="form-row-3" style="align-items:flex-end;">
-                        <div class="form-group" style="margin:0;">${locSelect}</div>
-                        <div class="form-group" style="margin:0;">${deptSelect}</div>
-                        <div class="form-group" style="margin:0;"><button type="button" class="btn btn-secondary btn-sm" onclick="addServicedDept(${i})">+ Add</button></div>
+                    const selLoc = (d.sharedPickLocation && zipMap[d.sharedPickLocation]) ? d.sharedPickLocation : '';
+                    const deptsForLoc = selLoc ? zipMap[selLoc] : [];
+                    const labelStyle = 'display:block; font-weight:700; color:#003B71; margin-bottom:4px;';
+                    // Step 1: searchable, single-select location list
+                    const locList = `<label style="${labelStyle}">Step 1 — Location <span style="font-weight:normal; color:#4a5568;">(in zip ${esc(zip)})</span></label>
+                        <input type="text" placeholder="Search locations..." oninput="filterSharedList(this,'sharedLocList-${i}')" style="margin-bottom:6px;" />
+                        <div class="multi-select" id="sharedLocList-${i}" style="max-height:200px;">
+                            ${locations.map(l => `<label data-filter-item="${esc(l)}"><input type="radio" name="sharedLoc-${i}" ${selLoc===l?'checked':''} onchange="handleSharedLocationPick(${i}, '${esc(l)}')" /> ${esc(l)}</label>`).join('')}
+                        </div>`;
+                    // Step 2: searchable, multi-select department list (check all that apply — no Add button)
+                    const deptList = selLoc
+                        ? `<label style="${labelStyle}">Step 2 — Departments / Clinics in ${esc(selLoc)} <span style="font-weight:normal; color:#4a5568;">(check all that apply)</span></label>
+                        <input type="text" placeholder="Search departments..." oninput="filterSharedList(this,'sharedDeptList-${i}')" style="margin-bottom:6px;" />
+                        <div class="multi-select" id="sharedDeptList-${i}" style="max-height:380px;">
+                            ${deptsForLoc.map(dp => { const entry = `${dp} — ${selLoc}`; return `<label data-filter-item="${esc(dp)}"><input type="checkbox" ${(d.servicedDepts||[]).includes(entry)?'checked':''} onchange="toggleServicedDept(${i}, '${esc(entry)}', this.checked)" /> ${esc(dp)}</label>`; }).join('')}
+                        </div>`
+                        : `<label style="${labelStyle}">Step 2 — Departments / Clinics</label><div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">Select a location on the left to see and check its departments/clinics.</div>`;
+                    const hint = `<div class="text-muted" style="margin:0 0 8px; font-size:12px;">Pick a <strong>Location</strong>, then <strong>check</strong> every department/clinic this pharmacy services (you can search and select several at once). Selected items appear as chips above. Use <strong>Other</strong> for anything not listed.</div>`;
+                    return `${selectedBlock}${hint}<div class="form-row" style="align-items:flex-start;">
+                        <div class="form-group" style="margin:0;">${locList}</div>
+                        <div class="form-group" style="margin:0;">${deptList}</div>
                     </div>${otherInput}`;
                 })()}
             </div>
             <div class="form-group" style="margin-top:8px;">
-                <label>Comments for OneLink Recharges of Shared/Associated Departments and Clinics serviced by this pharmacy (e.g. IP pharmacy compounding for and dispensing to infusion clinics, ONC pharmacy compounding for and dispensing to admitted IP patients)</label>
+                <label>Comments for OneLink Recharges of Shared/Associated Departments and Clinics serviced by this inpatient pharmacy (e.g. IP pharmacy compounding for and dispensing to infusion clinics, ONC pharmacy compounding for and dispensing to admitted IP patients)</label>
                 <textarea ${onch(i,'onelinkRechargesComments')} placeholder="Optional — add any context about OneLink recharges for departments/clinics...">${esc(d.onelinkRechargesComments)}</textarea>
-            </div>
-            <div class="form-row" style="margin-top:8px;">
-                <div class="form-group">
-                    <label class="required">Is any Medication Inventory shared with other Departments?</label>
-                    <div class="radio-group" data-req-radio="dept-${i}" data-field="shared-${i}">
-                        <label><input type="radio" name="shared-${i}" value="Yes" ${d.sharedInventory==='Yes'?'checked':''} onchange="handleSharedChange(${i},'Yes')" /> Yes</label>
-                        <label><input type="radio" name="shared-${i}" value="No" ${d.sharedInventory==='No'?'checked':''} onchange="handleSharedChange(${i},'No')" /> No</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="${d.sharedInventory==='Yes'?'required':''}">Current Location(s) that store the shared or recharged products</label>
-                    <textarea ${d.sharedInventory==='Yes'?`data-req="dept-${i}"`:''} class="${d.sharedInventory==='Yes'?'':'disabled-field'}" ${d.sharedInventory==='Yes'?'':'readonly'} ${d.sharedInventory==='Yes'?onch(i,'currentLocations'):''} placeholder="${d.sharedInventory==='Yes'?'List current locations...':'Select Yes for shared inventory above to enable this field'}">${esc(d.currentLocations)}</textarea>
-                </div>
             </div>
         </div>`;
         })()}
+
+        <!-- ORDERING -->
+        <div class="section-header">Ordering Information</div>
+        <div class="section-body">
+            <div class="form-row">
+                <div class="form-group"><label class="required">Order Frequency</label><input type="text" data-req="dept-${i}" value="${esc(d.orderFrequency)}" ${onch(i,'orderFrequency')} placeholder="e.g., Daily, Twice Daily, Weekly, Weekdays only, ..." /></div>
+                <div class="form-group">
+                    <label class="required">Time of Day of Ordering (select all that apply)</label>
+                    <div class="radio-group" data-orderTime="dept-${i}">
+                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('AM/Early Morning')?'checked':''} onchange="toggleMulti(${i},'orderTime','AM/Early Morning',this.checked)" /> AM/Early Morning</label>
+                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('PM/Mid Afternoon')?'checked':''} onchange="toggleMulti(${i},'orderTime','PM/Mid Afternoon',this.checked)" /> PM/Mid Afternoon</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group"><label>Comments</label>
+                <textarea ${onch(i,'comments')} placeholder="Additional comments...">${esc(d.comments)}</textarea>
+            </div>
+        </div>
 
         <div class="section-header">Confirmation</div>
         <div class="section-body">
@@ -710,6 +712,37 @@ function addServicedDept(i) {
 function removeServicedDept(i, idx) {
     surveyDepts[i].servicedDepts.splice(idx, 1);
     renderSurvey();
+}
+// In-place filter for the shared Location / Department lists. Hides non-matching
+// rows without a full re-render, so the search box keeps focus while typing.
+function filterSharedList(inputEl, containerId) {
+    const q = (inputEl.value || '').trim().toLowerCase();
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('[data-filter-item]').forEach(el => {
+        const txt = (el.getAttribute('data-filter-item') || '').toLowerCase();
+        el.style.display = (!q || txt.includes(q)) ? '' : 'none';
+    });
+}
+// Toggle a department checkbox in the shared-depts list. Updates state and just the
+// selected-chips block (no full re-render) so the search filter / scroll position stick.
+function toggleServicedDept(i, entry, checked) {
+    const d = surveyDepts[i];
+    d.servicedDepts = (d.servicedDepts || []).filter(v => v !== 'No / N/A');
+    if (checked) {
+        if (!d.servicedDepts.includes(entry)) d.servicedDepts.push(entry);
+    } else {
+        d.servicedDepts = d.servicedDepts.filter(v => v !== entry);
+    }
+    renderSelectedServicedChips(i);
+}
+function renderSelectedServicedChips(i) {
+    const container = document.getElementById('servicedSelected-' + i);
+    if (!container) return;
+    const d = surveyDepts[i];
+    const chips = (d.servicedDepts || []).map((s, idx) => s === 'No / N/A' ? '' :
+        `<span class="chip selected" style="cursor:default;">${esc(s)} <span style="cursor:pointer; font-weight:700; margin-left:6px;" title="Remove" onclick="removeServicedDept(${i},${idx})">×</span></span>`).join(' ');
+    container.innerHTML = chips.trim() ? `<div class="chip-grid" style="margin-bottom:8px;">${chips}</div>` : '';
 }
 
 function handleRegionChange(i, value) {
@@ -898,11 +931,6 @@ function validateSurvey() {
             });
         }
 
-        // When the user said inventory IS shared, the Shared/Associated multi-select
-        // must have at least one pick OR an "Other" free-text entry.
-        if (d.sharedInventory === 'Yes' && !(d.servicedDepts && d.servicedDepts.length) && !(d.servicedDeptsOther && d.servicedDeptsOther.trim())) {
-            errors.push(`Pharmacy ${i+1}: Select at least one Shared/Associated Department or enter one in Other.`);
-        }
         // Order time: at least one checkbox required
         if (!Array.isArray(d.orderTime) || d.orderTime.length === 0) {
             const otGroup = document.querySelector(`[data-orderTime="dept-${i}"]`);
@@ -942,6 +970,7 @@ async function submitSurvey() {
             location: d.location === '__other__' ? (d.locationOther || '') : d.location,
             department: d.department === '__other__' ? (d.departmentOther || '') : d.department,
             mainSupplyingPharmacy: d.mainSupplyingPharmacy === '__other__' ? (d.mainSupplyingPharmacyOther || '') : d.mainSupplyingPharmacy,
+            pharmacyUsage: d.pharmacyUsage === '__other__' ? (d.pharmacyUsageOther || '') : d.pharmacyUsage,
             // Repurpose the existing NumPyxis column (text) to carry the new additional-pyxis
             // answer + detail, so no SharePoint column/flow change is needed.
             numPyxis: d.additionalPyxis === 'Yes'
