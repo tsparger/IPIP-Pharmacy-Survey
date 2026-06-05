@@ -609,13 +609,13 @@ function renderDeptForm(d, i) {
                     const selectedInner = selectedRows.trim() ? `<div style="margin-bottom:8px;"><div class="text-muted" style="font-size:12px; margin-bottom:4px;">Selected departments — enter each one's Requestor ID (Item Master Inventory Location ID)${reqMark}:</div>${selectedRows}</div>` : '';
                     const selectedBlock = `<div id="servicedSelected-${i}">${selectedInner}</div>`;
                     if (!d.region || !zm) {
-                        return `${selectedBlock}<div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">Select a Region, Location, and Department above first (so a Zip Code is filled in) to pick departments in the same zip code.</div>`;
+                        return `<div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">Select a Region, Location, and Department above first (so a Zip Code is filled in) to pick departments in the same zip code.</div>${selectedBlock}`;
                     }
                     const zip = zm[0];
                     const zipMap = getServicedZipMap(d.region, zip);   // { location: [depts] }
                     const locations = Object.keys(zipMap).sort();
                     if (!locations.length) {
-                        return `${selectedBlock}<div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">No departments found in zip code ${esc(zip)}. Use the "Other" box below to add any shared/associated departments or clinics.</div>${otherInput}`;
+                        return `<div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">No departments found in zip code ${esc(zip)}. Use the "Other" box below to add any shared/associated departments or clinics.</div>${otherInput}${selectedBlock}`;
                     }
                     const selLoc = (d.sharedPickLocation && zipMap[d.sharedPickLocation]) ? d.sharedPickLocation : '';
                     const deptsForLoc = selLoc ? zipMap[selLoc] : [];
@@ -634,11 +634,11 @@ function renderDeptForm(d, i) {
                             ${deptsForLoc.map(dp => { const entry = `${dp} — ${selLoc}`; return `<label data-filter-item="${esc(dp)}"><input type="checkbox" ${(d.servicedDepts||[]).includes(entry)?'checked':''} onchange="toggleServicedDept(${i}, '${esc(entry)}', this.checked)" /> ${esc(dp)}</label>`; }).join('')}
                         </div>`
                         : `<label style="${labelStyle}">Step 2 — Departments / Clinics</label><div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">Select a location on the left to see and check its departments/clinics.</div>`;
-                    const hint = `<div class="text-muted" style="margin:0 0 8px; font-size:12px;">Pick a <strong>Location</strong>, then <strong>check</strong> every department/clinic this pharmacy services (you can search and select several at once). Selected items appear as chips above. Use <strong>Other</strong> for anything not listed.</div>`;
-                    return `${selectedBlock}${hint}<div class="form-row" style="align-items:flex-start;">
+                    const hint = `<div class="text-muted" style="margin:0 0 8px; font-size:12px;">Pick a <strong>Location</strong>, then <strong>check</strong> every department/clinic this pharmacy services (you can search and select several at once). Selected departments appear <strong>below</strong>, each with a box to enter its Requestor ID. Use <strong>Other</strong> for anything not listed.</div>`;
+                    return `${hint}<div class="form-row" style="align-items:flex-start;">
                         <div class="form-group" style="margin:0;">${locList}</div>
                         <div class="form-group" style="margin:0;">${deptList}</div>
-                    </div>${otherInput}`;
+                    </div>${otherInput}${selectedBlock}`;
                 })()}
             </div>
             <div class="form-group" style="margin-top:8px;">
