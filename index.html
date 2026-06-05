@@ -128,7 +128,7 @@
             .form-row, .form-row-3, .form-row-4 { grid-template-columns: 1fr; }
         }
     </style>
-    <script src="survey-data.js?v=20260604a"></script>
+    <script src="survey-data.js?v=20260605a"></script>
 </head>
 <body>
 
@@ -631,7 +631,7 @@ function renderDeptForm(d, i) {
                         ? `<label style="${labelStyle}">Step 2 — Departments / Clinics in ${esc(selLoc)} <span style="font-weight:normal; color:#4a5568;">(check all that apply)</span></label>
                         <input type="text" placeholder="Search departments..." oninput="filterSharedList(this,'sharedDeptList-${i}')" style="margin-bottom:6px;" />
                         <div class="multi-select" id="sharedDeptList-${i}" style="max-height:380px;">
-                            ${deptsForLoc.map(dp => { const entry = `${dp} — ${selLoc}`; return `<label data-filter-item="${esc(dp)}"><input type="checkbox" ${(d.servicedDepts||[]).includes(entry)?'checked':''} onchange="toggleServicedDept(${i}, '${esc(entry)}', this.checked)" /> ${esc(dp)}</label>`; }).join('')}
+                            ${deptsForLoc.map(dp => { const long = (((typeof SURVEY_DATA!=='undefined' && SURVEY_DATA.servicedLongNames)||{})[d.region]||{})[dp] || ''; const label = long ? `${dp} — ${long}` : dp; const entry = `${label} — ${selLoc}`; return `<label data-filter-item="${esc(dp+' '+long)}"><input type="checkbox" ${(d.servicedDepts||[]).includes(entry)?'checked':''} onchange="toggleServicedDept(${i}, '${esc(entry)}', this.checked)" /> ${esc(label)}</label>`; }).join('')}
                         </div>`
                         : `<label style="${labelStyle}">Step 2 — Departments / Clinics</label><div class="text-muted" style="padding:8px 12px; background:#f7fafc; border:1px dashed #cbd5e0; border-radius:6px;">Select a location on the left to see and check its departments/clinics.</div>`;
                     const hint = `<div class="text-muted" style="margin:0 0 8px; font-size:12px;">Pick a <strong>Location</strong>, then <strong>check</strong> every department/clinic this pharmacy services (you can search and select several at once). Selected departments appear <strong>below</strong>, each with a box to enter its Requestor ID. Use <strong>Other</strong> for anything not listed.</div>`;
