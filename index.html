@@ -251,7 +251,7 @@ const DEFAULT_SUBLOC_TYPES = [
     'Hazards', 'Incubator',
     'KitCheck storage',
     'Main Area',
-    'Narcotic Vault', 'Non-Standard',
+    'Narcotic Safe', 'Non-Standard',
     'Overstock Storage',
     'Pyxis Machine',
     'Refrigerator',
@@ -413,7 +413,7 @@ function makeDept() {
     return {
         region:'', location:'', locationOther:'', department:'', departmentOther:'',
         specialty:'IP Pharmacy', address:'', addressKey:'', city:'', state:'', zip:'',
-        pharmacyUsage:'', pharmacyUsageOther:'',
+        pharmacyUsage:[], pharmacyUsageOther:'',
         dispenseValidated: false, noBuildNeeded: false,
         onelinkLocDesc:'', onelinkLocCode:'', onelinkCostCenter:'', glString:'', dea:'', stateLicense:'',
         mainSupplyingPharmacy:'', mainSupplyingPharmacyOther:'', supplyingRxLocCode:'',
@@ -490,15 +490,20 @@ function renderDeptForm(d, i) {
                 <div class="form-group"><label class="required">Zip Code</label><input type="text" data-req="dept-${i}" class="${d.zip?'autofilled':''}" value="${esc(d.zip)}" ${onch(i,'zip')} placeholder="Auto-filled (editable)" /></div>
             </div>
             <div class="form-group">
-                <label class="required">How is this pharmacy used? (select one)</label>
-                <select data-req="dept-${i}" onchange="surveyDepts[${i}].pharmacyUsage=this.value; renderSurvey()">
-                    <option value="">-- Select pharmacy use --</option>
-                    <option value="Storage and actively dispenses medications" ${d.pharmacyUsage==='Storage and actively dispenses medications'?'selected':''}>This pharmacy is used for medication storage and actively dispenses medications</option>
-                    <option value="Storage and does not dispense medications" ${d.pharmacyUsage==='Storage and does not dispense medications'?'selected':''}>This pharmacy is used for medication storage and does not dispense medications</option>
-                    <option value="Administrative and does not dispense medications" ${d.pharmacyUsage==='Administrative and does not dispense medications'?'selected':''}>This pharmacy is used for administrative activities and does not dispense medications</option>
-                    <option value="__other__" ${d.pharmacyUsage==='__other__'?'selected':''}>Other</option>
-                </select>
-                ${d.pharmacyUsage==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.pharmacyUsageOther||'')}" oninput="surveyDepts[${i}].pharmacyUsageOther=this.value" onchange="surveyDepts[${i}].pharmacyUsageOther=this.value" placeholder="Describe how this pharmacy is used..." style="margin-top:6px;" />` : ''}
+                <label class="required">How is this pharmacy used? (select all that apply)</label>
+                ${(() => {
+                    const sel = Array.isArray(d.pharmacyUsage) ? d.pharmacyUsage : [];
+                    const opts = [
+                        ['Storage and actively dispenses medications','This pharmacy is used for medication storage and actively dispenses medications'],
+                        ['Storage and does not dispense medications','This pharmacy is used for medication storage and does not dispense medications'],
+                        ['Administrative and does not dispense medications','This pharmacy is used for administrative activities and does not dispense medications'],
+                        ['__other__','Other']
+                    ];
+                    return `<div class="radio-group" data-usage="dept-${i}" style="flex-direction:column; align-items:flex-start; gap:6px;">
+                        ${opts.map(([val,label]) => `<label><input type="checkbox" ${sel.includes(val)?'checked':''} onchange="handlePharmacyUsageToggle(${i},'${val}',this.checked)" /> ${label}</label>`).join('')}
+                    </div>`;
+                })()}
+                ${(Array.isArray(d.pharmacyUsage) && d.pharmacyUsage.includes('__other__')) ? `<input type="text" data-req="dept-${i}" value="${esc(d.pharmacyUsageOther||'')}" oninput="surveyDepts[${i}].pharmacyUsageOther=this.value" onchange="surveyDepts[${i}].pharmacyUsageOther=this.value" placeholder="Describe how this pharmacy is used..." style="margin-top:6px;" />` : ''}
             </div>
         </div>
 
@@ -533,7 +538,7 @@ function renderDeptForm(d, i) {
                 <div class="form-group"><label class="required">Supplying RX Location Code</label><input type="text" data-req="dept-${i}" class="${d.supplyingRxLocCode?'autofilled':''}" value="${esc(d.supplyingRxLocCode)}" ${onch(i,'supplyingRxLocCode')} placeholder="Auto-filled (editable)" /></div>
             </div>
             <div class="form-group">
-                <label class="required">Do you have any additional active pyxis machines inside your pharmacy besides one CII safe vault?</label>
+                <label class="required">Do you have any additional active pyxis machines inside your pharmacy besides one CII Safe?</label>
                 <div class="radio-group" data-req-radio="dept-${i}" data-field="additionalPyxis-${i}">
                     <label><input type="radio" name="additionalPyxis-${i}" value="Yes" ${d.additionalPyxis==='Yes'?'checked':''} onchange="handleAdditionalPyxisChange(${i},'Yes')" /> Yes</label>
                     <label><input type="radio" name="additionalPyxis-${i}" value="No" ${d.additionalPyxis==='No'?'checked':''} onchange="handleAdditionalPyxisChange(${i},'No')" /> No</label>
@@ -869,6 +874,22 @@ function handleAdditionalPyxisChange(i, value) {
     if (value !== 'Yes') surveyDepts[i].additionalPyxisInfo = '';  // clear detail when not Yes
     renderSurvey();
 }
+// Multi-select toggle for "How is this pharmacy used?". Re-renders so the Other
+// free-text box appears/disappears with the Other checkbox.
+function handlePharmacyUsageToggle(i, value, checked) {
+    const d = surveyDepts[i];
+    const arr = Array.isArray(d.pharmacyUsage) ? d.pharmacyUsage : [];
+    if (checked) {
+        if (!arr.includes(value)) arr.push(value);
+    } else {
+        d.pharmacyUsage = arr.filter(v => v !== value);
+        if (value === '__other__') d.pharmacyUsageOther = '';
+        renderSurvey();
+        return;
+    }
+    d.pharmacyUsage = arr;
+    renderSurvey();
+}
 
 function toggleMulti(i, field, value, checked) {
     const arr = surveyDepts[i][field] || [];
@@ -950,6 +971,15 @@ function validateSurvey() {
             });
         }
 
+        // "How is this pharmacy used?" — at least one checkbox required.
+        {
+            const ug = document.querySelector(`[data-usage="dept-${i}"]`);
+            if (!Array.isArray(d.pharmacyUsage) || d.pharmacyUsage.length === 0) {
+                if (ug) { ug.style.border = '2px solid #e53e3e'; ug.style.borderRadius = '6px'; ug.style.padding = '4px 8px'; }
+                errors.push(`Pharmacy ${i+1}: Select at least one option for "How is this pharmacy used?".`);
+            } else if (ug) { ug.style.border = ''; ug.style.borderRadius = ''; ug.style.padding = ''; }
+        }
+
         // Requestor ID required for each selected department — only when recharges are performed.
         document.querySelectorAll(`[data-reqid^="dept-${i}-"]`).forEach(el => el.classList.remove('field-error'));
         if (d.performsRecharges === 'Yes') {
@@ -1003,7 +1033,7 @@ async function submitSurvey() {
             location: d.location === '__other__' ? (d.locationOther || '') : d.location,
             department: d.department === '__other__' ? (d.departmentOther || '') : d.department,
             mainSupplyingPharmacy: d.mainSupplyingPharmacy === '__other__' ? (d.mainSupplyingPharmacyOther || '') : d.mainSupplyingPharmacy,
-            pharmacyUsage: d.pharmacyUsage === '__other__' ? (d.pharmacyUsageOther || '') : d.pharmacyUsage,
+            pharmacyUsage: (Array.isArray(d.pharmacyUsage) ? d.pharmacyUsage : []).map(v => v === '__other__' ? (d.pharmacyUsageOther || '').trim() : v).filter(Boolean).join('; '),
             // Repurpose the existing NumPyxis column (text) to carry the new additional-pyxis
             // answer + detail, so no SharePoint column/flow change is needed.
             numPyxis: d.additionalPyxis === 'Yes'
