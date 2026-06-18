@@ -246,7 +246,7 @@ const DEFAULT_SUBLOC_NAMES = [
 ];
 
 const DEFAULT_SUBLOC_TYPES = [
-    'Carousel', 'Cleanroom', 'Crash Cart',
+    'Carousel', 'Cleanroom',
     'Flammables', 'Freezer',
     'Hazards', 'Incubator',
     'Main Area',
@@ -553,7 +553,7 @@ function renderDeptForm(d, i) {
                 NOTE: Sublocations listed here should represent areas <u><strong>within this pharmacy</strong></u> where <strong>medication stock</strong> is stored &mdash; not supply storage areas. Examples include shelves, refrigerators, freezers, and designated dispensing zones.
             </div>
             <p class="mb-2" style="font-size:13px;"><strong>What is a sublocation?</strong> An area within the pharmacy that stores a group or type of medication (e.g., a refrigerator, freezer, shelf, or designated dispensing zone).</p>
-            <p class="text-muted mb-2">For each sublocation, click a <strong>Type</strong> and a <strong>Name</strong> below (every option is shown — no scrolling). Click the selected chip again to clear it, or use <strong>Other (free text)</strong> for a custom value. At least one sublocation is required.</p>
+            <p class="text-muted mb-2">For each sublocation, click a <strong>Type</strong> and a <strong>Name</strong> below (every option is shown — no scrolling). Click the selected chip again to clear it, or use <strong>Other (free text)</strong> for a custom value. Sublocations are optional &mdash; leave blank or remove the row if this pharmacy has no sublocations or is inactive.</p>
             ${(d.sublocations||[]).map((sl, si) => `
                 <div style="border:1px solid #cbd5e0; border-radius:8px; padding:12px; margin-bottom:10px; background:white;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -561,7 +561,7 @@ function renderDeptForm(d, i) {
                         <button class="btn btn-danger btn-sm" onclick="surveyDepts[${i}].sublocations.splice(${si},1);renderSurvey()">Remove</button>
                     </div>
                     <div style="margin-bottom:10px;">
-                        <label style="display:block; font-size:14px; font-weight:700; color:#003B71; text-transform:uppercase; letter-spacing:.02em; margin-bottom:6px; padding-bottom:4px; border-bottom:2px solid #cbd5e0;">Main/Sat Pharmacy Sublocation Type <span style="color:#e53e3e;">*</span></label>
+                        <label style="display:block; font-size:14px; font-weight:700; color:#003B71; text-transform:uppercase; letter-spacing:.02em; margin-bottom:6px; padding-bottom:4px; border-bottom:2px solid #cbd5e0;">Main/Sat Pharmacy Sublocation Type</label>
                         <div class="chip-grid">
                             ${state.sublocTypes.map((t, ti) => `<span class="chip ${sl.type===t?'selected':''}" onclick="handleSublocTypeChange(${i},${si},state.sublocTypes[${ti}])">${esc(t)}</span>`).join('')}
                             <span class="chip chip-other ${sl.type==='__other__'?'selected':''}" onclick="handleSublocTypeChange(${i},${si},'__other__')">Other (free text)</span>
@@ -569,7 +569,7 @@ function renderDeptForm(d, i) {
                         ${sl.type==='__other__' ? `<input type="text" data-req-subloc="dept-${i}" value="${esc(sl.typeOther)}" oninput="surveyDepts[${i}].sublocations[${si}].typeOther=this.value" onchange="surveyDepts[${i}].sublocations[${si}].typeOther=this.value" placeholder="Enter sublocation type..." style="margin-top:6px;" />` : ''}
                     </div>
                     <div>
-                        <label style="display:block; font-size:14px; font-weight:700; color:#003B71; text-transform:uppercase; letter-spacing:.02em; margin-bottom:6px; padding-bottom:4px; border-bottom:2px solid #cbd5e0;">Main/Sat Pharmacy Sublocation Name <span style="color:#e53e3e;">*</span></label>
+                        <label style="display:block; font-size:14px; font-weight:700; color:#003B71; text-transform:uppercase; letter-spacing:.02em; margin-bottom:6px; padding-bottom:4px; border-bottom:2px solid #cbd5e0;">Main/Sat Pharmacy Sublocation Name</label>
                         <div class="chip-grid">
                             ${state.sublocNames.map((n, ni) => `<span class="chip ${sl.name===n?'selected':''}" onclick="handleSublocNameChange(${i},${si},state.sublocNames[${ni}])">${esc(n)}</span>`).join('')}
                             <span class="chip chip-other ${sl.name==='__other__'?'selected':''}" onclick="handleSublocNameChange(${i},${si},'__other__')">Other (free text)</span>
@@ -662,6 +662,7 @@ function renderDeptForm(d, i) {
                     <div class="radio-group" data-orderTime="dept-${i}">
                         <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('AM/Early Morning')?'checked':''} onchange="toggleMulti(${i},'orderTime','AM/Early Morning',this.checked)" /> AM/Early Morning</label>
                         <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('PM/Mid Afternoon')?'checked':''} onchange="toggleMulti(${i},'orderTime','PM/Mid Afternoon',this.checked)" /> PM/Mid Afternoon</label>
+                        <label><input type="checkbox" ${(Array.isArray(d.orderTime)?d.orderTime:[]).includes('N/A')?'checked':''} onchange="toggleMulti(${i},'orderTime','N/A',this.checked)" /> N/A</label>
                     </div>
                 </div>
             </div>
@@ -951,24 +952,21 @@ function validateSurvey() {
             }
         });
 
-        // Sublocation validation - at least one required, and each must have name+type
-        // (type/name are chip selections in the data model; the "Other" free-text inputs
-        // still carry data-req-subloc so we can highlight an empty one).
-        if (!d.sublocations || d.sublocations.length === 0) {
-            errors.push(`Pharmacy ${i+1}: At least one sublocation is required.`);
-        } else {
-            d.sublocations.forEach(sl => {
-                const typeOk = sl.type && (sl.type !== '__other__' || (sl.typeOther && sl.typeOther.trim()));
-                const nameOk = sl.name && (sl.name !== '__other__' || (sl.nameOther && sl.nameOther.trim()));
-                if (!typeOk || !nameOk) {
-                    errors.push(`Pharmacy ${i+1}: Each sublocation needs both a Type and a Name.`);
-                }
-            });
-            document.querySelectorAll(`[data-req-subloc="dept-${i}"]`).forEach(el => {
-                if (!el.value.trim()) el.classList.add('field-error');
-                else el.classList.remove('field-error');
-            });
-        }
+        // Sublocation validation - sublocations are OPTIONAL (some satellites have none or
+        // are inactive). Fully empty rows are ignored; but a row that is partially filled
+        // (only a Type or only a Name) must have both so we don't capture half-entries.
+        (d.sublocations || []).forEach(sl => {
+            const typeOk = sl.type && (sl.type !== '__other__' || (sl.typeOther && sl.typeOther.trim()));
+            const nameOk = sl.name && (sl.name !== '__other__' || (sl.nameOther && sl.nameOther.trim()));
+            const started = sl.type || sl.name || (sl.typeOther && sl.typeOther.trim()) || (sl.nameOther && sl.nameOther.trim());
+            if (started && (!typeOk || !nameOk)) {
+                errors.push(`Pharmacy ${i+1}: Each sublocation you add needs both a Type and a Name (or remove the row).`);
+            }
+        });
+        document.querySelectorAll(`[data-req-subloc="dept-${i}"]`).forEach(el => {
+            if (!el.value.trim()) el.classList.add('field-error');
+            else el.classList.remove('field-error');
+        });
 
         // "How is this pharmacy used?" — at least one checkbox required.
         {
@@ -1130,12 +1128,13 @@ function checkAdmin() {
     }
 }
 
-// ============ PENDING-DRAFT CACHE (per-browser) ============
-// Stores the full pharmacy entry for any pharmacy that was submitted but
-// NOT confirmed (pharmacyDispenseValidated !== 'Yes'). Keyed by
-// region||location||department. When the user later picks the same
-// pharmacy again, every field is restored from here so they can pick
-// up where they left off.
+// ============ SAVED-RESPONSE CACHE (per-browser) ============
+// Stores the full pharmacy entry for every pharmacy that has been submitted,
+// keyed by region||location||department. When the user later picks the same
+// pharmacy again, every field is restored from here so they can EDIT their
+// prior submission instead of refilling it from scratch. Note: this cache is
+// per-browser only — a different user/device will not see it (see cross-user
+// note in the completion section).
 function getPendingDrafts() {
     try { return JSON.parse(localStorage.getItem('pharmacy-pending-drafts') || '{}'); }
     catch { return {}; }
@@ -1146,11 +1145,9 @@ function savePendingDrafts(depts) {
         if (!d.region || !d.location || !d.department) return;
         if (d.location === '__other__' || d.department === '__other__') return;
         const key = `${d.region}||${d.location}||${d.department}`;
-        if (d.pharmacyDispenseValidated === 'Yes') {
-            delete map[key];
-        } else {
-            map[key] = d;
-        }
+        // Always retain the submitted entry (including completed/validated ones)
+        // so revisiting the pharmacy brings the data back for editing.
+        map[key] = d;
     });
     localStorage.setItem('pharmacy-pending-drafts', JSON.stringify(map));
 }
