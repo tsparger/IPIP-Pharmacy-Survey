@@ -470,6 +470,7 @@ function renderDeptForm(d, i) {
             <h3>Pharmacy ${i + 1}</h3>
             ${surveyDepts.length > 1 ? `<button class="btn btn-danger" onclick="surveyDepts.splice(${i},1);renderSurvey()">Remove Pharmacy</button>` : ''}
         </div>
+        ${d._reconstructed ? `<div style="background:#fffbeb; border:2px solid #f6ad55; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#c05621; font-weight:600;">⚠️ Pre-filled from a previous submission — please review every field and update as needed before submitting. (Some answers were rebuilt from saved data and may need correcting.)</div>` : ''}
 
         <!-- PHARMACY IDENTIFICATION -->
         <div class="section-header">Pharmacy Identification</div>
@@ -1048,8 +1049,9 @@ async function submitSurvey() {
             // Full, untouched copy of this department's answers. Stored verbatim in the
             // SharePoint "RawData" column so any user/device can later read it back and
             // restore the entry for editing (and recover completion status), regardless
-            // of which browser originally submitted it.
-            raw: JSON.stringify(d),
+            // of which browser originally submitted it. The transient _reconstructed
+            // flag is dropped so a reviewed entry doesn't re-trigger the banner later.
+            raw: JSON.stringify({ ...d, _reconstructed: undefined }),
             // Resolve __other__ placeholders to the user-typed values
             location: d.location === '__other__' ? (d.locationOther || '') : d.location,
             department: d.department === '__other__' ? (d.departmentOther || '') : d.department,
@@ -1218,6 +1220,64 @@ function isLocationCompleted(region, location) {
     return all.every(dep => isPharmacyCompleted(region, location, dep));
 }
 
+// Best-effort rebuild of a department entry from the flattened SharePoint columns,
+// for submissions made BEFORE the verbatim RawData blob was captured. Several fields
+// were stored as joined text, so the result is not guaranteed identical to the
+// original — entries built this way are flagged `_reconstructed` so the form shows a
+// "pre-filled, please review" banner. Missing columns are tolerated (return '').
+function reconstructDept(r) {
+    const d = makeDept();
+    const val = k => (r[k] != null ? String(r[k]) : '');
+    const splitList = s => String(s || '').split(';').map(x => x.trim()).filter(Boolean);
+    // Map a stored value back onto a chip list, falling back to the "Other" free-text slot.
+    const pick = (value, list) => (!value ? { sel: '', other: '' }
+        : (list || []).includes(value) ? { sel: value, other: '' } : { sel: '__other__', other: value });
+    d.region = val('Region'); d.location = val('Location'); d.department = val('Department');
+    d.specialty = val('Specialty') || 'IP Pharmacy';
+    d.address = val('Address'); d.city = val('City'); d.state = val('State') || 'California'; d.zip = val('Zip');
+    d.pharmacyUsage = splitList(r.PharmacyUsage);
+    d.dispenseValidated = val('DispenseValidated') === 'Yes';
+    d.noBuildNeeded = val('NoBuildNeeded') === 'Yes';
+    d.mainSupplyingPharmacy = val('MainSupplyingPharmacy');
+    d.supplyingRxLocCode = val('SupplyingRxLocCode');
+    d.onelinkLocDesc = val('OneLinkLocDesc'); d.onelinkLocCode = val('OneLinkLocCode');
+    d.onelinkCostCenter = val('OneLinkCostCenter'); d.glString = val('GLString');
+    d.dea = val('DEA'); d.stateLicense = val('StateLicense');
+    d.numNonPyxis = val('NumNonPyxis');
+    const np = val('NumPyxis');
+    const npm = np.match(/^yes\s*:\s*(.*)$/i);          // "Yes: detail" -> additional-Pyxis answer
+    if (npm) { d.additionalPyxis = 'Yes'; d.additionalPyxisInfo = npm[1].trim(); }
+    else if (np) { d.additionalPyxis = np; }
+    // Sublocations stored as "name:type; name:type"
+    d.sublocations = splitList(r.Sublocations).map(pair => {
+        const i = pair.indexOf(':');
+        const name = i >= 0 ? pair.slice(0, i).trim() : pair.trim();
+        const type = i >= 0 ? pair.slice(i + 1).trim() : '';
+        const n = pick(name, state.sublocNames), t = pick(type, state.sublocTypes);
+        return { name: n.sel, nameOther: n.other, type: t.sel, typeOther: t.other };
+    });
+    if (!d.sublocations.length) d.sublocations = [makeSublocation()];
+    d.orderFrequency = val('OrderFrequency');
+    d.orderTime = String(r.OrderTime || '').split(/[;,]/).map(x => x.trim()).filter(Boolean);
+    // ServicedDepts stored as "ENTRY (Location Code: 123); ENTRY2" (older rows say "Requestor ID")
+    d.servicedDepts = []; d.servicedDeptRequestorIds = {};
+    splitList(r.ServicedDepts).forEach(s => {
+        const m = s.match(/^(.*?)\s*\((?:Location Code|Requestor ID):\s*([^)]*)\)\s*$/i);
+        const entry = m ? m[1].trim() : s.trim();
+        const code = m ? m[2].trim() : '';
+        if (entry) { d.servicedDepts.push(entry); if (code) d.servicedDeptRequestorIds[entry] = code; }
+    });
+    d.servicedDeptsOther = val('ServicedDeptsOther');
+    d.performsRecharges = val('PerformsRecharges');
+    d.onelinkRechargesComments = val('OnelinkRechargesComments');
+    d.sharedInventory = val('SharedInventory');
+    d.currentLocations = val('CurrentLocations');
+    d.comments = val('Comments');
+    d.pharmacyDispenseValidated = val('PharmacyDispenseValidated');
+    d._reconstructed = true;
+    return d;
+}
+
 // ============ SERVER SYNC (cross-user) ============
 // Reads every submitted response back from SharePoint (via the optional
 // "Get Pharmacy Responses" flow) and merges it into the local completion +
@@ -1250,6 +1310,12 @@ async function syncFromServer() {
         let dept = null;
         const rawStr = r.RawData || r.raw || r.RawJson || r.rawData;
         if (rawStr) { try { dept = JSON.parse(rawStr); } catch (_) {} }
+        // No verbatim copy (older submission) — rebuild a best-effort, reviewable
+        // entry from the other saved columns so it can still be edited.
+        if (!dept || !dept.region) {
+            const rebuilt = reconstructDept(r);
+            if (rebuilt.region && rebuilt.location && rebuilt.department) dept = rebuilt;
+        }
         if (dept && dept.region) drafts[key] = dept;
         // Completion gate unchanged: only when dispense info was validated = Yes.
         const validated = (dept && dept.pharmacyDispenseValidated) || r.PharmacyDispenseValidated || r.pharmacyDispenseValidated;
