@@ -279,11 +279,12 @@ function loadState() {
 }
 function saveState() { localStorage.setItem('pharmacy-survey-state-v6', JSON.stringify(state)); }
 
-function toast(msg, isError) {
+function toast(msg, isError, ms) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.style.display = 'block';
     t.className = isError ? 'toast toast-error' : 'toast';
-    setTimeout(() => t.style.display = 'none', 3500);
+    if (toast._timer) clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => t.style.display = 'none', ms || 3500);
 }
 
 // ============ POWER AUTOMATE INTEGRATION ============
@@ -1086,11 +1087,14 @@ async function submitSurvey() {
                 clearActiveDraft();
                 showSuccessScreen(nameVal, now, surveyDepts.length);
             } else {
-                toast('Submission failed: ' + describeError(result), true);
+                const raw = describeError(result);
+                toast(isGatewayTimeout(raw) ? TIMEOUT_TOAST : ('Submission failed: ' + raw), true, isGatewayTimeout(raw) ? 11000 : 3500);
                 document.getElementById('submit-btn').disabled = false;
             }
         } catch (e) {
-            toast('Submission error: ' + describeError(e && (e.message || e)), true);
+            const raw = describeError(e && (e.message || e));
+            const timeout = isGatewayTimeout(raw) || (e && e.name === 'AbortError');
+            toast(timeout ? TIMEOUT_TOAST : ('Submission error: ' + raw), true, timeout ? 11000 : 3500);
             document.getElementById('submit-btn').disabled = false;
         }
         hideLoading();
@@ -1145,6 +1149,20 @@ function describeError(err) {
     }
     return String(err);
 }
+
+// Recognizes the Power Automate gateway "didn't respond in time" class of errors
+// (NoResponse / upstream timeout / our own fetch abort). These are transient or
+// duration-related, not data problems, so we show actionable guidance instead.
+function isGatewayTimeout(msg) {
+    const s = String(msg || '').toLowerCase();
+    return s.includes('noresponse') || s.includes('upstream server')
+        || s.includes('did not receive a response') || s.includes('gateway')
+        || s.includes('timeout') || s.includes('timed out') || s.includes('aborted')
+        || s.includes('504');
+}
+// Friendly, actionable text for a timeout — nudges the user to check before resubmitting
+// so we don't create duplicate rows when the write actually went through.
+const TIMEOUT_TOAST = 'The server took too long to respond, so this submission may not have gone through. Refresh the page and check whether a green check now appears next to this pharmacy — if it does, you are all set. If not, wait a moment and click Submit again. If this keeps happening, let the survey administrator know.';
 
 // ============ ADMIN ACCESS ============
 function checkAdmin() {
