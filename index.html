@@ -1062,11 +1062,11 @@ async function submitSurvey() {
                 clearActiveDraft();
                 showSuccessScreen(nameVal, now, surveyDepts.length);
             } else {
-                toast('Submission failed: ' + ((result && result.error) || 'Unknown error'), true);
+                toast('Submission failed: ' + describeError(result), true);
                 document.getElementById('submit-btn').disabled = false;
             }
         } catch (e) {
-            toast('Submission error: ' + e.message, true);
+            toast('Submission error: ' + describeError(e && (e.message || e)), true);
             document.getElementById('submit-btn').disabled = false;
         }
         hideLoading();
@@ -1104,6 +1104,23 @@ function resetSurvey() {
 
 // ============ UTILS ============
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Turns whatever the flow/network hands back into a readable message.
+// Power Automate failures come back as { error: { code, message } }, so a naive
+// string concat would surface "[object Object]" and hide the real cause.
+function describeError(err) {
+    if (err == null) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    if (typeof err === 'object') {
+        const inner = err.error != null ? err.error : err;
+        if (typeof inner === 'string') return inner;
+        if (inner && (inner.message || inner.code)) {
+            return [inner.code, inner.message].filter(Boolean).join(': ');
+        }
+        try { return JSON.stringify(err); } catch (_) { return String(err); }
+    }
+    return String(err);
+}
 
 // ============ ADMIN ACCESS ============
 function checkAdmin() {
