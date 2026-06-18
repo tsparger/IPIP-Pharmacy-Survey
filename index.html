@@ -1239,7 +1239,7 @@ function reconstructDept(r) {
     d.dispenseValidated = val('DispenseValidated') === 'Yes';
     d.noBuildNeeded = val('NoBuildNeeded') === 'Yes';
     d.mainSupplyingPharmacy = val('MainSupplyingPharmacy');
-    d.supplyingRxLocCode = val('SupplyingRxLocCode');
+    d.supplyingRxLocCode = val('SupplyingRxLocCode') || val('SupplyingRXLocCode');
     d.onelinkLocDesc = val('OneLinkLocDesc'); d.onelinkLocCode = val('OneLinkLocCode');
     d.onelinkCostCenter = val('OneLinkCostCenter'); d.glString = val('GLString');
     d.dea = val('DEA'); d.stateLicense = val('StateLicense');
@@ -1248,14 +1248,15 @@ function reconstructDept(r) {
     const npm = np.match(/^yes\s*:\s*(.*)$/i);          // "Yes: detail" -> additional-Pyxis answer
     if (npm) { d.additionalPyxis = 'Yes'; d.additionalPyxisInfo = npm[1].trim(); }
     else if (np) { d.additionalPyxis = np; }
-    // Sublocations stored as "name:type; name:type"
+    // Sublocations stored as "name:type; name:type" (strip stray quotes/space the flow added)
+    const clean = s => String(s || '').replace(/^['"\s]+|['"\s]+$/g, '');
     d.sublocations = splitList(r.Sublocations).map(pair => {
         const i = pair.indexOf(':');
-        const name = i >= 0 ? pair.slice(0, i).trim() : pair.trim();
-        const type = i >= 0 ? pair.slice(i + 1).trim() : '';
+        const name = clean(i >= 0 ? pair.slice(0, i) : pair);
+        const type = clean(i >= 0 ? pair.slice(i + 1) : '');
         const n = pick(name, state.sublocNames), t = pick(type, state.sublocTypes);
         return { name: n.sel, nameOther: n.other, type: t.sel, typeOther: t.other };
-    });
+    }).filter(sl => sl.name || sl.type);
     if (!d.sublocations.length) d.sublocations = [makeSublocation()];
     d.orderFrequency = val('OrderFrequency');
     d.orderTime = String(r.OrderTime || '').split(/[;,]/).map(x => x.trim()).filter(Boolean);
