@@ -155,6 +155,8 @@
         <div style="margin-top:12px;">
             <label style="color:#c05621;">Flow: Submit Pharmacy Survey (POST) — required</label>
             <input type="text" id="api-url-submit" placeholder="https://prod-xx.westus.logic.azure.com:443/workflows/..." value="" />
+            <label style="color:#c05621; display:block; margin-top:10px;">Flow: Get Pharmacy Responses (GET) — optional; enables shared checkmarks &amp; editing across all users</label>
+            <input type="text" id="api-url-responses" placeholder="https://...invoke?api-version=..." value="" />
             <button class="btn btn-primary mt-2" onclick="saveApiUrls()">Save &amp; Connect</button>
         </div>
         <p id="api-status" class="text-muted mt-2"></p>
@@ -290,8 +292,14 @@ function toast(msg, isError) {
 // (localStorage-only configuration only works for the admin's own browser — external users
 //  have empty localStorage and would have no way to submit.)
 const EMBEDDED_FLOW_URL = 'https://997e87e2062feb52af5c332a27e4b4.0d.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b34d1679ffaa4e3ead8d8222f877a7a0/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=MqXW8VcznDQ6aSlYZtTyEsK6IfXl3B-KrE1k6Clq-Gs';
+// Paste your "Get Pharmacy Responses" flow's HTTP GET URL between the quotes below to
+// make completion checkmarks AND prior submissions shared across ALL users/devices
+// (responses are read back from SharePoint on page load). Leave blank to keep
+// checkmarks/saved data per-browser only.
+const EMBEDDED_RESPONSES_URL = '';
 let URLS = JSON.parse(localStorage.getItem('pharmacy-flow-urls') || '{}');
 if (EMBEDDED_FLOW_URL) URLS.submit = EMBEDDED_FLOW_URL;
+if (EMBEDDED_RESPONSES_URL) URLS.responses = EMBEDDED_RESPONSES_URL;
 function isConnected() { return !!URLS.submit; }
 function showLoading(msg) {
     document.getElementById('loading-text').textContent = msg || 'Loading...';
@@ -311,13 +319,24 @@ async function flowPost(url, data, timeoutMs) {
         return await resp.json();
     } finally { clearTimeout(timeout); }
 }
+async function flowGet(url, timeoutMs) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs || 30000);
+    try {
+        const resp = await fetch(url, { method: 'GET', signal: controller.signal });
+        return await resp.json();
+    } finally { clearTimeout(timeout); }
+}
 function saveApiUrls() {
     const submit = document.getElementById('api-url-submit').value.trim();
     if (!submit) { toast('Submit Survey URL is required.', true); return; }
-    URLS = { submit };
+    const respEl = document.getElementById('api-url-responses');
+    const responses = respEl ? respEl.value.trim() : '';
+    URLS = { submit, responses };
     localStorage.setItem('pharmacy-flow-urls', JSON.stringify(URLS));
     document.getElementById('api-status').innerHTML = '<span style="color:#38a169;font-weight:600;">Saved!</span>';
     document.getElementById('setup-banner').style.borderColor = '#38a169';
+    if (responses) syncFromServer();
 }
 
 // ============ VIEW SWITCHING ============
@@ -1026,6 +1045,11 @@ async function submitSurvey() {
         submittedAt: submittedAt,
         departments: surveyDepts.map(d => ({
             ...d,
+            // Full, untouched copy of this department's answers. Stored verbatim in the
+            // SharePoint "RawData" column so any user/device can later read it back and
+            // restore the entry for editing (and recover completion status), regardless
+            // of which browser originally submitted it.
+            raw: JSON.stringify(d),
             // Resolve __other__ placeholders to the user-typed values
             location: d.location === '__other__' ? (d.locationOther || '') : d.location,
             department: d.department === '__other__' ? (d.departmentOther || '') : d.department,
@@ -1157,11 +1181,14 @@ function getPendingDraft(region, location, department) {
     return getPendingDrafts()[`${region}||${location}||${department}`] || null;
 }
 
-// ============ COMPLETION TRACKING (per-browser) ============
+// ============ COMPLETION TRACKING ============
 // A pharmacy department is "completed" once it has been submitted with
 // "Check if pharmacy dispense information is validated" answered Yes.
 // Completed pharmacies show a green ✅ in the Location and Department
 // dropdowns so users can see what is already done.
+// The local maps below are the working copy; when a "Get Pharmacy Responses"
+// URL is configured, syncFromServer() merges everyone's submissions from
+// SharePoint into them on load so checkmarks/data are shared across all users.
 function getCompleted() {
     try { return JSON.parse(localStorage.getItem('pharmacy-completed') || '{}'); }
     catch { return {}; }
@@ -1189,6 +1216,54 @@ function isLocationCompleted(region, location) {
     const all = (D.pharmacyDepartments[region][location] || []).map(p => p.dept);
     if (!all.length) return false;
     return all.every(dep => isPharmacyCompleted(region, location, dep));
+}
+
+// ============ SERVER SYNC (cross-user) ============
+// Reads every submitted response back from SharePoint (via the optional
+// "Get Pharmacy Responses" flow) and merges it into the local completion +
+// saved-response caches. This is what makes one user's green checkmarks and
+// prior submissions visible/editable to OTHER users and devices — without it,
+// those caches are per-browser only. Safe no-op when no responses URL is set.
+let serverSynced = false;
+async function syncFromServer() {
+    if (!URLS.responses) return;
+    let data;
+    try { data = await flowGet(URLS.responses); }
+    catch (e) { return; }   // offline or flow unavailable — keep working from local cache
+    const list = (data && (data.responses || data.value)) || (Array.isArray(data) ? data : []);
+    if (!Array.isArray(list) || !list.length) { serverSynced = true; return; }
+    // Keep only the most-recent submission per pharmacy (region||location||department).
+    const newest = {};
+    list.forEach(r => {
+        const region = r.Region || r.region, location = r.Location || r.location, department = r.Department || r.department;
+        if (!region || !location || !department) return;
+        const key = `${region}||${location}||${department}`;
+        const ts = Date.parse(r.SubmittedAt || r.submittedAt || '') || 0;
+        if (!newest[key] || ts >= newest[key]._ts) { r._ts = ts; newest[key] = r; }
+    });
+    const completed = getCompleted();
+    const drafts = getPendingDrafts();
+    Object.keys(newest).forEach(key => {
+        const r = newest[key];
+        const [region, location, department] = key.split('||');
+        // Rebuild the full survey entry from the verbatim "RawData" blob, if present.
+        let dept = null;
+        const rawStr = r.RawData || r.raw || r.RawJson || r.rawData;
+        if (rawStr) { try { dept = JSON.parse(rawStr); } catch (_) {} }
+        if (dept && dept.region) drafts[key] = dept;
+        // Completion gate unchanged: only when dispense info was validated = Yes.
+        const validated = (dept && dept.pharmacyDispenseValidated) || r.PharmacyDispenseValidated || r.pharmacyDispenseValidated;
+        if (validated === 'Yes') {
+            const ck = `${region}||${location}`;
+            if (!completed[ck]) completed[ck] = [];
+            if (!completed[ck].includes(department)) completed[ck].push(department);
+        }
+    });
+    localStorage.setItem('pharmacy-completed', JSON.stringify(completed));
+    localStorage.setItem('pharmacy-pending-drafts', JSON.stringify(drafts));
+    serverSynced = true;
+    // Re-render so newly-merged checkmarks appear in the Location/Department dropdowns.
+    if (typeof renderSurvey === 'function') renderSurvey();
 }
 
 // ============ ACTIVE-DRAFT AUTOSAVE ============
@@ -1251,6 +1326,7 @@ function clearAllFields() {
 function init() {
     checkAdmin();
     if (URLS.submit) document.getElementById('api-url-submit').value = URLS.submit;
+    if (URLS.responses) { const re = document.getElementById('api-url-responses'); if (re) re.value = URLS.responses; }
     renderPublicLink();
     // Diagnostic banner: if the data file didn't load, the rest of the survey
     // is useless. Surface this to the user (and to anyone debugging from the
@@ -1288,6 +1364,9 @@ function init() {
         document.getElementById('api-status').innerHTML = '<span style="color:#38a169;font-weight:600;">Connected</span>';
         document.getElementById('setup-banner').style.borderColor = '#38a169';
     }
+    // Pull everyone's submissions from SharePoint so checkmarks/data are shared.
+    // Fire-and-forget: it re-renders the dropdowns once the data arrives.
+    syncFromServer();
 }
 init();
 </script>
