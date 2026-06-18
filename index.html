@@ -1160,9 +1160,11 @@ function isGatewayTimeout(msg) {
         || s.includes('timeout') || s.includes('timed out') || s.includes('aborted')
         || s.includes('504');
 }
-// Friendly, actionable text for a timeout — nudges the user to check before resubmitting
-// so we don't create duplicate rows when the write actually went through.
-const TIMEOUT_TOAST = 'The server took too long to respond, so this submission may not have gone through. Refresh the page and check whether a green check now appears next to this pharmacy — if it does, you are all set. If not, wait a moment and click Submit again. If this keeps happening, let the survey administrator know.';
+// Friendly, actionable text for a timeout. We deliberately do NOT tell users to rely on
+// the green check — a re-submission of an already-completed pharmacy shows the check even
+// if this attempt failed. Instead we reassure that resubmitting is safe, because the
+// system always keeps the most recent submission for each pharmacy (newest wins).
+const TIMEOUT_TOAST = 'The server took too long to respond, so this submission may not have gone through. Please wait a moment and click Submit again — it is safe to resubmit, because the most recent submission for each pharmacy is the one that is kept. If this keeps happening, let the survey administrator know.';
 
 // ============ ADMIN ACCESS ============
 function checkAdmin() {
