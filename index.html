@@ -296,7 +296,7 @@ const EMBEDDED_FLOW_URL = 'https://997e87e2062feb52af5c332a27e4b4.0d.environment
 // make completion checkmarks AND prior submissions shared across ALL users/devices
 // (responses are read back from SharePoint on page load). Leave blank to keep
 // checkmarks/saved data per-browser only.
-const EMBEDDED_RESPONSES_URL = '';
+const EMBEDDED_RESPONSES_URL = 'https://997e87e2062feb52af5c332a27e4b4.0d.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/50bf80f15a194633af0f45018eb7c941/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=8IoDFtzow7nm1jVctdqSsz5of-8Vlxak9Y8-LsqdZLI';
 let URLS = JSON.parse(localStorage.getItem('pharmacy-flow-urls') || '{}');
 if (EMBEDDED_FLOW_URL) URLS.submit = EMBEDDED_FLOW_URL;
 if (EMBEDDED_RESPONSES_URL) URLS.responses = EMBEDDED_RESPONSES_URL;
