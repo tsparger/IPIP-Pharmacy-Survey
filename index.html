@@ -487,6 +487,7 @@ function renderDeptForm(d, i) {
                     <select data-req="dept-${i}" onchange="handleLocationChange(${i}, this.value)" ${!d.region?'disabled':''}>
                         <option value="">${d.region ? '-- Select Location --' : '-- Select Region first --'}</option>
                         ${d.region && SURVEY_DATA.pharmacyLocations[d.region] ? SURVEY_DATA.pharmacyLocations[d.region].map(l => { const prefix = isLocationCompleted(d.region, l) ? '✅ ' : ''; return `<option value="${esc(l)}" ${d.location===l?'selected':''}>${esc(prefix + l)}</option>`; }).join('') : ''}
+                        ${d.region ? getOtherLocations(d.region).map(l => { const prefix = locationHasCompletion(d.region, l) ? '✅ ' : ''; return `<option value="${esc(l)}" ${d.location===l?'selected':''}>${esc(prefix + l)} (added)</option>`; }).join('') : ''}
                         <option value="__other__" ${d.location==='__other__'?'selected':''}>Other (enter manually)</option>
                     </select>
                     ${d.location==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.locationOther||'')}" oninput="surveyDepts[${i}].locationOther=this.value" onchange="surveyDepts[${i}].locationOther=this.value" placeholder="Enter location name..." style="margin-top:6px;" />` : ''}
@@ -497,6 +498,7 @@ function renderDeptForm(d, i) {
                     <select data-req="dept-${i}" onchange="handleDepartmentChange(${i}, this.value)" ${!d.location?'disabled':''}>
                         <option value="">${d.location ? '-- Select Department --' : '-- Select Location first --'}</option>
                         ${d.region && d.location && d.location !== '__other__' && SURVEY_DATA.pharmacyDepartments[d.region] && SURVEY_DATA.pharmacyDepartments[d.region][d.location] ? SURVEY_DATA.pharmacyDepartments[d.region][d.location].map(rec => { const prefix = isPharmacyCompleted(d.region, d.location, rec.dept) ? '✅ ' : ''; return `<option value="${esc(rec.dept)}" ${d.department===rec.dept?'selected':''}>${esc(prefix + rec.dept)}</option>`; }).join('') : ''}
+                        ${d.region && d.location && d.location !== '__other__' ? getOtherDepartments(d.region, d.location).map(dep => { const prefix = isPharmacyCompleted(d.region, d.location, dep) ? '✅ ' : ''; return `<option value="${esc(dep)}" ${d.department===dep?'selected':''}>${esc(prefix + dep)} (added)</option>`; }).join('') : ''}
                         <option value="__other__" ${d.department==='__other__'?'selected':''}>Other (enter manually)</option>
                     </select>
                     ${d.department==='__other__' ? `<input type="text" data-req="dept-${i}" value="${esc(d.departmentOther||'')}" oninput="surveyDepts[${i}].departmentOther=this.value" onchange="surveyDepts[${i}].departmentOther=this.value" placeholder="Enter department name..." style="margin-top:6px;" />` : ''}
@@ -1188,9 +1190,12 @@ function getPendingDrafts() {
 function savePendingDrafts(depts) {
     const map = getPendingDrafts();
     depts.forEach(d => {
-        if (!d.region || !d.location || !d.department) return;
-        if (d.location === '__other__' || d.department === '__other__') return;
-        const key = `${d.region}||${d.location}||${d.department}`;
+        // Resolve free-text "Other" entries to their typed name so they are keyed
+        // (and later restorable) the same way named pharmacies/departments are.
+        const loc = d.location === '__other__' ? (d.locationOther || '').trim() : d.location;
+        const dep = d.department === '__other__' ? (d.departmentOther || '').trim() : d.department;
+        if (!d.region || !loc || !dep) return;
+        const key = `${d.region}||${loc}||${dep}`;
         // Always retain the submitted entry (including completed/validated ones)
         // so revisiting the pharmacy brings the data back for editing.
         map[key] = d;
@@ -1199,7 +1204,6 @@ function savePendingDrafts(depts) {
 }
 function getPendingDraft(region, location, department) {
     if (!region || !location || !department) return null;
-    if (location === '__other__' || department === '__other__') return null;
     return getPendingDrafts()[`${region}||${location}||${department}`] || null;
 }
 
@@ -1218,12 +1222,14 @@ function getCompleted() {
 function markCompleted(depts) {
     const map = getCompleted();
     depts.forEach(d => {
-        if (!d.region || !d.location || !d.department) return;
-        if (d.location === '__other__' || d.department === '__other__') return;
+        // Resolve free-text "Other" entries so they earn a checkmark like named ones.
+        const loc = d.location === '__other__' ? (d.locationOther || '').trim() : d.location;
+        const dep = d.department === '__other__' ? (d.departmentOther || '').trim() : d.department;
+        if (!d.region || !loc || !dep) return;
         if (d.pharmacyDispenseValidated !== 'Yes') return;
-        const key = `${d.region}||${d.location}`;
+        const key = `${d.region}||${loc}`;
         if (!map[key]) map[key] = [];
-        if (!map[key].includes(d.department)) map[key].push(d.department);
+        if (!map[key].includes(dep)) map[key].push(dep);
     });
     localStorage.setItem('pharmacy-completed', JSON.stringify(map));
 }
@@ -1238,6 +1244,34 @@ function isLocationCompleted(region, location) {
     const all = (D.pharmacyDepartments[region][location] || []).map(p => p.dept);
     if (!all.length) return false;
     return all.every(dep => isPharmacyCompleted(region, location, dep));
+}
+
+// ===== Free-text "Other" pharmacies/departments as first-class dropdown entries =====
+// Surfaces previously-submitted Other locations/departments (keyed by their typed name
+// in the completion + saved-response caches, including everyone's via server sync) so
+// they reappear in the dropdowns with a checkmark and can be re-selected to restore —
+// instead of users re-keying the same Other entry and creating duplicates every time.
+function getSubmittedLocations(region) {
+    const set = new Set();
+    Object.keys(getCompleted()).forEach(k => { const p = k.split('||'); if (p[0] === region && p[1]) set.add(p[1]); });
+    Object.keys(getPendingDrafts()).forEach(k => { const p = k.split('||'); if (p[0] === region && p[1]) set.add(p[1]); });
+    return set;
+}
+function getOtherLocations(region) {
+    if (!region) return [];
+    const master = new Set((SURVEY_DATA.pharmacyLocations && SURVEY_DATA.pharmacyLocations[region]) || []);
+    return [...getSubmittedLocations(region)].filter(l => l && l !== '__other__' && !master.has(l)).sort();
+}
+function getOtherDepartments(region, location) {
+    if (!region || !location) return [];
+    const recs = ((SURVEY_DATA.pharmacyDepartments && SURVEY_DATA.pharmacyDepartments[region]) || {})[location] || [];
+    const master = new Set(recs.map(x => x.dept));
+    const set = new Set(getCompleted()[`${region}||${location}`] || []);
+    Object.keys(getPendingDrafts()).forEach(k => { const p = k.split('||'); if (p[0] === region && p[1] === location && p[2]) set.add(p[2]); });
+    return [...set].filter(dep => dep && dep !== '__other__' && !master.has(dep)).sort();
+}
+function locationHasCompletion(region, location) {
+    return (getCompleted()[`${region}||${location}`] || []).length > 0;
 }
 
 // Best-effort rebuild of a department entry from the flattened SharePoint columns,
@@ -1388,11 +1422,12 @@ function restoreActiveDraft() {
                 if (!D || !D.pharmacyDepartments || !d.region) return;
                 if (d.location && d.location !== '__other__') {
                     const locList = D.pharmacyDepartments[d.region] || {};
-                    if (!locList[d.location]) {
-                        d.location = ''; d.department = '';
-                    } else if (d.department && d.department !== '__other__') {
-                        const ok = (locList[d.location] || []).some(p => p.dept === d.department);
-                        if (!ok) d.department = '';
+                    // Only validate against master data for known (master) locations.
+                    // A non-master location is a legit free-text "Other" — leave it intact.
+                    if (locList[d.location] && d.department && d.department !== '__other__') {
+                        const masterOk = (locList[d.location] || []).some(p => p.dept === d.department);
+                        const otherOk = getOtherDepartments(d.region, d.location).includes(d.department);
+                        if (!masterOk && !otherOk) d.department = '';
                     }
                 }
             });
