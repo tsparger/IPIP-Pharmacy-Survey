@@ -934,6 +934,14 @@ function handleServicedNAToggle(i, checked) {
 }
 
 // ============ VALIDATION ============
+// True when the ONLY "how is this pharmacy used?" selection is the administrative,
+// non-dispensing option. Such pharmacies only need to identify themselves; all other
+// fields are optional (nothing to build/validate for a non-dispensing admin location).
+function isAdminOnlyUsage(d) {
+    const u = Array.isArray(d.pharmacyUsage) ? d.pharmacyUsage : [];
+    return u.length === 1 && u[0] === 'Administrative and does not dispense medications';
+}
+
 function validateSurvey() {
     let errors = [];
 
@@ -948,6 +956,18 @@ function validateSurvey() {
     }
 
     surveyDepts.forEach((d, i) => {
+        // Administrative-only (non-dispensing) pharmacies: only the pharmacy's identity
+        // is required; every other field is optional. Clear any stale required highlights
+        // and skip the rest of the checks for this pharmacy.
+        if (isAdminOnlyUsage(d)) {
+            document.querySelectorAll(`[data-req="dept-${i}"], [data-reqid^="dept-${i}-"], [data-req-subloc="dept-${i}"]`).forEach(el => el.classList.remove('field-error'));
+            document.querySelectorAll(`[data-req-radio="dept-${i}"]`).forEach(rg => { rg.style.border=''; rg.style.borderRadius=''; rg.style.padding='4px 0'; });
+            const loc = d.location === '__other__' ? (d.locationOther || '').trim() : d.location;
+            const dep = d.department === '__other__' ? (d.departmentOther || '').trim() : d.department;
+            if (!d.region || !loc || !dep) errors.push(`Pharmacy ${i+1}: Select Region, Location, and Department.`);
+            return; // all other fields optional for an administrative, non-dispensing pharmacy
+        }
+
         // Required text/number fields
         const reqFields = document.querySelectorAll(`[data-req="dept-${i}"]`);
         reqFields.forEach(el => {
